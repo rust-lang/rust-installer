@@ -413,6 +413,8 @@ INSTALLED_MANIFEST="${ABS_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}/manifest"
 # Errors are warnings - try to rm everything in the manifest even if some fail.
 if [ -f "${INSTALLED_MANIFEST}" ]
 then
+    msg
+
     # Iterate through installed manifest and remove files
     while read p; do
         # The installed manifest contains absolute paths
@@ -467,6 +469,8 @@ need_ok "failed to create ${TEMPLATE_REL_MANIFEST_DIR}"
 touch "${INSTALLED_MANIFEST}"
 need_ok "failed to create installed manifest"
 
+msg
+
 # Now install, iterate through the new manifest and copy files
 while read p; do
 
@@ -495,7 +499,7 @@ while read p; do
     FILE_INSTALL_PATH="${ABSOLUTIFIED}"
 
     # Install the file
-    msg "${FILE_INSTALL_PATH}"
+    msg "installing ${FILE_INSTALL_PATH}"
     if echo "$p" | grep "^bin/" > /dev/null
     then
         install -m755 "${CFG_SRC_DIR}/$p" "${FILE_INSTALL_PATH}"
@@ -510,6 +514,8 @@ while read p; do
 
 # The manifest lists all files to install
 done < "${CFG_SRC_DIR}/${CFG_LIBDIR_RELATIVE}/${TEMPLATE_REL_MANIFEST_DIR}/manifest.in"
+
+msg
 
 # Run ldconfig to make dynamic libraries available to the linker
 if [ "$CFG_OSTYPE" = "unknown-linux-gnu" ]
