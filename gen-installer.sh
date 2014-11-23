@@ -224,12 +224,13 @@ else
 fi
 
 valopt product-name "Product" "The name of the product, for display"
+valopt package-name "package" "The name of the package, tarball"
 valopt verify-bin "program" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "${CFG_VERIFY_BIN}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
-valopt image-dir "./install-image" "The directory containing the installation medium"
 valopt non-installed-files "" "Files that should be included but not installed"
-valopt package-name "package" "The name of the package, tarball"
+valopt image-dir "./install-image" "The directory containing the installation medium"
+valopt work-dir "./workdir" "The directory to do temporary work"
 valopt output-dir "./dist" "The location to put the final image and tarball"
 opt tarball 1 "Disable tarball generation, leaving output in the temp dir"
 
@@ -249,26 +250,26 @@ then
     err "image dir $CFG_IMAGE_DIR does not exist"
 fi
 
-mkdir -p "$CFG_OUTPUT_DIR"
-need_ok "couldn't create output dir"
+mkdir -p "$CFG_WORK_DIR"
+need_ok "couldn't create work dir"
 
-rm -Rf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME"
-need_ok "couldn't delete output package dir"
+rm -Rf "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
+need_ok "couldn't delete work package dir"
 
-mkdir -p "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME"
-need_ok "couldn't create output package dir"
+mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
+need_ok "couldn't create work package dir"
 
-cp -r "$CFG_IMAGE_DIR/"* "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME"
+cp -r "$CFG_IMAGE_DIR/"* "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
 need_ok "couldn't copy source image"
 
 # Split non_installed_files into lines for later iteration
 NON_INSTALLED_FILES=`echo "$CFG_NON_INSTALLED_FILES" | tr "," "\n"`
 
 # Create the manifest
-MANIFEST=`(cd "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
+MANIFEST=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
 
-TEMP_MANIFEST="$CFG_OUTPUT_DIR/tmp-manifest-$CFG_PACKAGE_NAME"
-TEMP_NON_INSTALLED_FILES="$CFG_OUTPUT_DIR/tmp-non-installed-files-$CFG_PACKAGE_NAME"
+TEMP_MANIFEST="$CFG_WORK_DIR/tmp-manifest-$CFG_PACKAGE_NAME"
+TEMP_NON_INSTALLED_FILES="$CFG_WORK_DIR/tmp-non-installed-files-$CFG_PACKAGE_NAME"
 
 echo "$MANIFEST" > "$TEMP_MANIFEST"
 echo "$NON_INSTALLED_FILES" > "$TEMP_NON_INSTALLED_FILES"
@@ -292,9 +293,9 @@ need_ok "couldn't delete temp manifest"
 rm "$TEMP_NON_INSTALLED_FILES"
 need_ok "couldn't delete temp file"
 
-MANIFEST_NAME="$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR/manifest.in"
+MANIFEST_NAME="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR/manifest.in"
 
-mkdir -p "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR"
+mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR"
 need_ok "couldn't create manifest dir"
 
 # Delete blank line added from above loop
@@ -309,13 +310,16 @@ echo "$NEW_MANIFEST" > "$MANIFEST_NAME"
     --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
     --success-message="$CFG_SUCCESS_MESSAGE" \
-    --output-script="$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME/install.sh"
+    --output-script="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/install.sh"
 
 need_ok "failed to generate install script"    
+
+mkdir -p "$CFG_OUTPUT_DIR"
+need_ok "couldn't create output dir"
 
 rm -Rf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz"
 need_ok "couldn't delete old tarball"
 
 # Make a tarball
-tar -czf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz" -C "$CFG_OUTPUT_DIR" "$CFG_PACKAGE_NAME"
+tar -czf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz" -C "$CFG_WORK_DIR" "$CFG_PACKAGE_NAME"
 need_ok "failed to tar"
