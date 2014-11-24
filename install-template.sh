@@ -370,7 +370,7 @@ then
     then
         msg "verifying platform can run binaries"
         export $CFG_LD_PATH_VAR="${CFG_SRC_DIR}/lib:$CFG_OLD_LD_PATH_VAR"
-        "${CFG_SRC_DIR}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
+        "${CFG_SRC_DIR}/bin/${TEMPLATE_VERIFY_BIN}" --version 2> /dev/null 1> /dev/null
         if [ $? -ne 0 ]
         then
             err "can't execute rustc binary on this platform"
