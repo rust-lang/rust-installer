@@ -12,7 +12,7 @@ used by a future combined installer of Rust + Cargo.
                    --image-dir=./install-image \
                    --work-dir=./temp \
                    --output-dir=./dist \
-                   --non-installed-files="foo,bin/bar,lib/baz" \
+                   --non-installed-prefixes="foo,bin/bar,lib/baz" \
                    --package-name=rustc-nightly-i686-apple-darwin
 ```
 

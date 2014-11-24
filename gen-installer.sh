@@ -228,7 +228,7 @@ valopt package-name "package" "The name of the package, tarball"
 valopt verify-bin "program" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "${CFG_VERIFY_BIN}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
-valopt non-installed-files "" "Files that should be included but not installed"
+valopt non-installed-prefixes "" "Path prefixes that should be included but not installed"
 valopt image-dir "./install-image" "The directory containing the installation medium"
 valopt work-dir "./workdir" "The directory to do temporary work"
 valopt output-dir "./dist" "The location to put the final image and tarball"
@@ -263,26 +263,27 @@ cp -r "$CFG_IMAGE_DIR/"* "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
 need_ok "couldn't copy source image"
 
 # Split non_installed_files into lines for later iteration
-NON_INSTALLED_FILES=`echo "$CFG_NON_INSTALLED_FILES" | tr "," "\n"`
+NON_INSTALLED_PREFIXES=`echo "$CFG_NON_INSTALLED_PREFIXES" | tr "," "\n"`
 
 # Create the manifest
 MANIFEST=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
 
 TEMP_MANIFEST="$CFG_WORK_DIR/tmp-manifest-$CFG_PACKAGE_NAME"
-TEMP_NON_INSTALLED_FILES="$CFG_WORK_DIR/tmp-non-installed-files-$CFG_PACKAGE_NAME"
+TEMP_NON_INSTALLED_PREFIXES="$CFG_WORK_DIR/tmp-non-installed-prefixes-$CFG_PACKAGE_NAME"
 
 echo "$MANIFEST" > "$TEMP_MANIFEST"
-echo "$NON_INSTALLED_FILES" > "$TEMP_NON_INSTALLED_FILES"
+echo "$NON_INSTALLED_PREFIXES" > "$TEMP_NON_INSTALLED_PREFIXES"
 
 # Remove all non-installed-files
 NEW_MANIFEST=""
 while read f; do
     no_install=0
     while read nf; do
-	if [ "$f" = "$nf" ]; then
+	echo "$f" | grep "^$nf" > /dev/null
+	if [ "$?" = "0" ]; then
 	    no_install=1
 	fi
-    done < "$TEMP_NON_INSTALLED_FILES"
+    done < "$TEMP_NON_INSTALLED_PREFIXES"
     if [ $no_install -eq 0 ]; then
 	NEW_MANIFEST="$NEW_MANIFEST\n$f"
     fi
@@ -290,7 +291,7 @@ done < "$TEMP_MANIFEST"
 
 rm "$TEMP_MANIFEST"
 need_ok "couldn't delete temp manifest"
-rm "$TEMP_NON_INSTALLED_FILES"
+rm "$TEMP_NON_INSTALLED_PREFIXES"
 need_ok "couldn't delete temp file"
 
 MANIFEST_NAME="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR/manifest.in"
