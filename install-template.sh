@@ -327,6 +327,7 @@ valopt prefix "/usr/local" "set installation prefix"
 # just using 'lib' instead of configure's CFG_LIBDIR_RELATIVE
 valopt libdir "${CFG_DESTDIR}${CFG_PREFIX}/lib" "install libraries"
 valopt mandir "${CFG_DESTDIR}${CFG_PREFIX}/share/man" "install man pages in PATH"
+opt ldconfig 1 "run ldconfig after installation (Linux only)"
 
 if [ $HELP -eq 1 ]
 then
@@ -337,10 +338,9 @@ fi
 step_msg "validating $CFG_SELF args"
 validate_opt
 
-
-
 # Template configuration.
 # These names surrounded by '%%` are replaced by sed when generating install.sh
+# FIXME: Might want to consider loading this from a file and not generating install.sh
 
 # Rust or Cargo
 TEMPLATE_PRODUCT_NAME=%%TEMPLATE_PRODUCT_NAME%%
@@ -350,8 +350,17 @@ TEMPLATE_VERIFY_BIN=%%TEMPLATE_VERIFY_BIN%%
 TEMPLATE_REL_MANIFEST_DIR=%%TEMPLATE_REL_MANIFEST_DIR%%
 # 'Rust is ready to roll.' or 'Cargo is cool to cruise.'
 TEMPLATE_SUCCESS_MESSAGE=%%TEMPLATE_SUCCESS_MESSAGE%%
+# Locations to look for directories containing legacy, pre-versioned manifests
+TEMPLATE_LEGACY_MANIFEST_DIRS=%%TEMPLATE_LEGACY_MANIFEST_DIRS%%
+# The installer version
+TEMPLATE_RUST_INSTALLER_VERSION=%%TEMPLATE_RUST_INSTALLER_VERSION%%
 
 # OK, let's get installing ...
+
+# If we don't have a verify bin then disable verify
+if [ -z "$TEMPLATE_VERIFY_BIN" ]; then
+    CFG_DISABLE_VERIFY=1
+fi
 
 # Sanity check: can we run the binaries?
 if [ -z "${CFG_DISABLE_VERIFY}" ]
@@ -364,7 +373,7 @@ then
         "${CFG_SRC_DIR}/bin/${TEMPLATE_VERIFY_BIN}" --version 2> /dev/null 1> /dev/null
         if [ $? -ne 0 ]
         then
-            err "can't execute rustc binary on this platform"
+            err "can't execute binaries on this platform"
         fi
         export $CFG_LD_PATH_VAR="$CFG_OLD_LD_PATH_VAR"
     fi
@@ -392,57 +401,180 @@ then
     err "can't install to same directory as installer"
 fi
 
+# Open the components file to get the list of components to install
+COMPONENTS=`cat "$CFG_SRC_DIR/components"`
+
+# Sanity check: do we have components?
+if [ ! -n "$COMPONENTS" ]; then
+    err "unable to find installation components"
+fi
+
 # Using an absolute path to libdir in a few places so that the status
 # messages are consistently using absolute paths.
 absolutify "${CFG_LIBDIR}"
 ABS_LIBDIR="${ABSOLUTIFIED}"
 
-# The file name of the manifest we're going to create during install
-INSTALLED_MANIFEST="${ABS_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}/manifest"
+# Replace commas in legacy manifest list with spaces
+LEGACY_MANIFEST_DIRS=`echo "$TEMPLATE_LEGACY_MANIFEST_DIRS" | sed "s/,/ /g"`
 
-# First, uninstall from the installation prefix.
-# Errors are warnings - try to rm everything in the manifest even if some fail.
-if [ -f "${INSTALLED_MANIFEST}" ]
-then
-    msg
+# Uninstall from legacy manifests
+for md in $LEGACY_MANIFEST_DIRS; do
+    # First, uninstall from the installation prefix.
+    # Errors are warnings - try to rm everything in the manifest even if some fail.
+    if [ -f "$ABS_LIBDIR/$md/manifest" ]
+    then
 
-    # Iterate through installed manifest and remove files
-    while read p; do
-        # The installed manifest contains absolute paths
-        msg "removing $p"
-        if [ -f "$p" ]
-        then
-            rm -f "$p"
-            if [ $? -ne 0 ]
+	# Iterate through installed manifest and remove files
+	while read p; do
+            # The installed manifest contains absolute paths
+            msg "removing legacy file $p"
+            if [ -f "$p" ]
             then
-                warn "failed to remove $p"
+		rm -f "$p"
+		if [ $? -ne 0 ]
+		then
+                    warn "failed to remove $p"
+		fi
+            else
+		warn "supposedly installed file $p does not exist!"
             fi
-        else
-            warn "supposedly installed file $p does not exist!"
-        fi
-    done < "${INSTALLED_MANIFEST}"
+	done < "$ABS_LIBDIR/$md/manifest"
 
-    # If we fail to remove $TEMPLATE_REL_MANIFEST_DIR below, then the
-    # installed manifest will still be full; the installed manifest
-    # needs to be empty before install.
-    msg "removing ${INSTALLED_MANIFEST}"
-    rm -f "${INSTALLED_MANIFEST}"
-    # For the above reason, this is a hard error
-    need_ok "failed to remove installed manifest"
+	# If we fail to remove $md below, then the
+	# installed manifest will still be full; the installed manifest
+	# needs to be empty before install.
+	msg "removing legacy manifest $ABS_LIBDIR/$md/manifest"
+	rm -f "$ABS_LIBDIR/$md/manifest"
+	# For the above reason, this is a hard error
+	need_ok "failed to remove installed manifest"
 
-    # Remove $TEMPLATE_REL_MANIFEST_DIR directory
-    msg "removing ${ABS_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}"
-    rm -Rf "${ABS_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}"
-    if [ $? -ne 0 ]
-    then
-        warn "failed to remove ${TEMPLATE_REL_MANIFEST_DIR}"
+	# Remove $TEMPLATE_REL_MANIFEST_DIR directory
+	msg "removing legacy manifest dir ${ABS_LIBDIR}/$md"
+	rm -Rf "${ABS_LIBDIR}/$md"
+	if [ $? -ne 0 ]
+	then
+            warn "failed to remove $md"
+	fi
+
+	UNINSTALLED_SOMETHING=1
     fi
-else
-    # There's no manifest. If we were asked to uninstall, then that's a problem.
-    if [ -n "${CFG_UNINSTALL}" ]
-    then
-        err "unable to find installation manifest at ${CFG_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}"
+done
+
+# Load the version of the installed installer
+if [ -f "$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version" ]; then
+    INSTALLED_VERSION=`cat "$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version"`
+
+    # Sanity check
+    if [ ! -n "$INSTALLED_VERSION" ]; then err "rust installer version is empty"; fi
+fi
+
+# If there's something installed, then uninstall
+if [ -n "$INSTALLED_VERSION" ]; then
+    # Check the version of the installed installer
+    case "$INSTALLED_VERSION" in
+
+	# TODO: If this is a previous version, then upgrade in place to the
+	# current version before uninstalling. No need to do this yet because
+	# there is no prior version (only the legacy 'unversioned' installer
+	# which we've already dealt with).
+
+	# This is the current version. Nothing need to be done except uninstall.
+	"$TEMPLATE_RUST_INSTALLER_VERSION")
+	    ;;
+
+	# TODO: If this is an unknown (future) version then bail.
+	*)
+	    echo "The copy of $TEMPLATE_PRODUCT_NAME at $CFG_PREFIX was installed using an"
+	    echo "unknown version ($INSTALLED_VERSION) of rust-installer."
+	    echo "Uninstall it first with the installer used for the original installation"
+	    echo "before continuing."
+	    exit 1
+	    ;;
+    esac
+
+    MD="$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR"
+    INSTALLED_COMPONENTS=`cat $MD/components`
+
+    # Uninstall (our components only) before reinstalling
+    for available_component in $COMPONENTS; do
+	for installed_component in $INSTALLED_COMPONENTS; do
+	    if [ "$available_component" = "$installed_component" ]; then
+		COMPONENT_MANIFEST="$MD/manifest-$installed_component"
+
+		# Sanity check: there should be a component manifest
+		if [ ! -f "$COMPONENT_MANIFEST" ]; then
+		    err "installed component '$installed_component' has no manifest"
+		fi
+
+		# Iterate through installed component manifest and remove files
+		while read directive; do
+
+		    COMMAND=`echo $directive | cut -f1 -d:`
+		    FILE=`echo $directive | cut -f2 -d:`
+
+		    # Sanity checks
+		    if [ ! -n "$COMMAND" ]; then err "malformed installation directive"; fi
+		    if [ ! -n "$FILE" ]; then err "malformed installation directive"; fi
+
+		    case "$COMMAND" in
+			file)
+			    msg "removing file $FILE"
+			    if [ -f "$FILE" ]; then
+				rm -f "$FILE"
+				if [ $? -ne 0 ]; then
+				    warn "failed to remove $FILE"
+				fi
+			    else
+				warn "supposedly installed file $FILE does not exist!"
+			    fi
+			    ;;
+
+			dir)
+			    msg "removing directory $FILE"
+			    rm -Rf "$FILE"
+			    if [ $? -ne 0]; then
+				warn "unable to remove directory $FILE"
+			    fi
+			    ;;
+
+			*)
+			    err "unknown installation directive"
+			    ;;
+		    esac
+
+		done < "$COMPONENT_MANIFEST"
+
+		# Remove the installed component manifest
+		msg "removing component manifest $COMPONENT_MANIFEST"
+		rm -f "$COMPONENT_MANIFEST"
+		# This is a hard error because the installation is unrecoverable
+		need_ok "failed to remove installed manifest for component '$installed_component'"
+
+		# Update the installed component list
+		MODIFIED_COMPONENTS=`sed /^$installed_component\$/d $MD/components`
+		echo "$MODIFIED_COMPONENTS" > "$MD/components"
+		need_ok "failed to update installed component list"
+	    fi
+	done
+    done
+
+    # If there are no remaining components delete the manifest directory
+    REMAINING_COMPONENTS=`cat $MD/components`
+    if [ ! -n "$REMAINING_COMPONENTS" ]; then
+	msg "removing manifest directory $MD"
+	rm -Rf "$MD"
+	if [ $? -ne 0 ]; then
+	    warn "failed to remove $MD"
+	fi
     fi
+
+    UNINSTALLED_SOMETHING=1
+fi
+
+# There's no installed version. If we were asked to uninstall, then that's a problem.
+if [ -n "${CFG_UNINSTALL}" -a ! -n "$UNINSTALLED_SOMETHING" ]
+then
+    err "unable to find installation manifest at ${CFG_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}"
 fi
 
 # If we're only uninstalling then exit
@@ -454,63 +586,120 @@ then
     exit 0
 fi
 
-# Create the installed manifest, which we will fill in with absolute file paths
+# Create the directory to contain the manifests
 mkdir -p "${CFG_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}"
 need_ok "failed to create ${TEMPLATE_REL_MANIFEST_DIR}"
-touch "${INSTALLED_MANIFEST}"
-need_ok "failed to create installed manifest"
 
-msg
+# Install each component
+for component in $COMPONENTS; do
 
-# Now install, iterate through the new manifest and copy files
-while read p; do
+    # The file name of the manifest we're installing from
+    INPUT_MANIFEST="${CFG_SRC_DIR}/manifest-$component.in"
 
-    # Decide the destination of the file
-    FILE_INSTALL_PATH="${CFG_DESTDIR}${CFG_PREFIX}/$p"
+    # The installed manifest directory
+    MD="$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR"
 
-    if echo "$p" | grep "^lib/" > /dev/null
-    then
-        pp=`echo $p | sed 's/^lib\///'`
-        FILE_INSTALL_PATH="${CFG_LIBDIR}/$pp"
+    # The file name of the manifest we're going to create during install
+    INSTALLED_MANIFEST="$MD/manifest-$component"
+
+    # Create the installed manifest, which we will fill in with absolute file paths
+    touch "${INSTALLED_MANIFEST}"
+    need_ok "failed to create installed manifest"
+
+    # Sanity check: do we have our input manifests?
+    if [ ! -f "$INPUT_MANIFEST" ]; then
+	err "manifest for $component does not exist at $INPUT_MANIFEST"
     fi
 
-    if echo "$p" | grep "^share/man/" > /dev/null
-    then
-        pp=`echo $p | sed 's/^share\/man\///'`
-        FILE_INSTALL_PATH="${CFG_MANDIR}/$pp"
-    fi
+    # Now install, iterate through the new manifest and copy files
+    while read directive; do
 
-    # Make sure there's a directory for it
-    umask 022 && mkdir -p "$(dirname ${FILE_INSTALL_PATH})"
-    need_ok "directory creation failed"
+	COMMAND=`echo $directive | cut -f1 -d:`
+	FILE=`echo $directive | cut -f2 -d:`
 
-    # Make the path absolute so we can uninstall it later without
-    # starting from the installation cwd
-    absolutify "${FILE_INSTALL_PATH}"
-    FILE_INSTALL_PATH="${ABSOLUTIFIED}"
+	# Sanity checks
+	if [ ! -n "$COMMAND" ]; then err "malformed installation directive"; fi
+	if [ ! -n "$FILE" ]; then err "malformed installation directive"; fi
 
-    # Install the file
-    msg "installing ${FILE_INSTALL_PATH}"
-    if echo "$p" | grep "^bin/" > /dev/null
-    then
-        install -m755 "${CFG_SRC_DIR}/$p" "${FILE_INSTALL_PATH}"
-    else
-        install -m644 "${CFG_SRC_DIR}/$p" "${FILE_INSTALL_PATH}"
-    fi
-    need_ok "file creation failed"
+	# Decide the destination of the file
+	FILE_INSTALL_PATH="${CFG_DESTDIR}${CFG_PREFIX}/$FILE"
 
-    # Update the manifest
-    echo "${FILE_INSTALL_PATH}" >> "${INSTALLED_MANIFEST}"
-    need_ok "failed to update manifest"
+	if echo "$FILE" | grep "^lib/" > /dev/null
+	then
+            f=`echo $FILE | sed 's/^lib\///'`
+            FILE_INSTALL_PATH="${CFG_LIBDIR}/$f"
+	fi
 
-# The manifest lists all files to install
-done < "${CFG_SRC_DIR}/lib/${TEMPLATE_REL_MANIFEST_DIR}/manifest.in"
+	if echo "$FILE" | grep "^share/man/" > /dev/null
+	then
+            f=`echo $FILE | sed 's/^share\/man\///'`
+            FILE_INSTALL_PATH="${CFG_MANDIR}/$f"
+	fi
 
-msg
+	# Make sure there's a directory for it
+	umask 022 && mkdir -p "$(dirname ${FILE_INSTALL_PATH})"
+	need_ok "directory creation failed"
+
+	# Make the path absolute so we can uninstall it later without
+	# starting from the installation cwd
+	absolutify "${FILE_INSTALL_PATH}"
+	FILE_INSTALL_PATH="${ABSOLUTIFIED}"
+
+	case "$COMMAND" in
+	    file)
+
+		# Install the file
+		msg "copying file $FILE_INSTALL_PATH"
+		if echo "$FILE" | grep "^bin/" > /dev/null
+		then
+		    install -m755 "${CFG_SRC_DIR}/$FILE" "${FILE_INSTALL_PATH}"
+		else
+		    install -m644 "${CFG_SRC_DIR}/$FILE" "${FILE_INSTALL_PATH}"
+		fi
+		need_ok "file creation failed"
+
+		# Update the manifest
+		echo "file:${FILE_INSTALL_PATH}" >> "${INSTALLED_MANIFEST}"
+		need_ok "failed to update manifest"
+
+		;;
+
+	    dir)
+
+		# Copy the dir
+		msg "copying directory $FILE_INSTALL_PATH"
+
+		# Sanity check: bulk dirs are supposed to be uniquely ours and should not exist
+		if [ -e "$FILE_INSTALL_PATH" ]; then
+		    err "$FILE_INSTALL_PATH already exists"
+		fi
+
+		cp -R "$CFG_SRC_DIR/$FILE" "$FILE_INSTALL_PATH"
+		need_ok "failed to copy directory"
+
+		# Update the manifest
+		echo "dir:$FILE_INSTALL_PATH" >> "$INSTALLED_MANIFEST"
+		need_ok "failed to update manifest"
+		;;
+
+	    *)
+		err "unknown installation directive"
+		;;
+	esac
+    done < "$INPUT_MANIFEST"
+
+    # Update the components
+    echo "$component" >> "$MD/components"
+    need_ok "failed to update components list for $component"
+
+done
+
+# Drop the version number into the manifest dir
+echo "$TEMPLATE_RUST_INSTALLER_VERSION" > "${ABS_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}/rust-installer-version"
 
 # Run ldconfig to make dynamic libraries available to the linker
-if [ "$CFG_OSTYPE" = "unknown-linux-gnu" ]
-    then
+if [ "$CFG_OSTYPE" = "unknown-linux-gnu" -a ! -n "$CFG_DISABLE_LDCONFIG" ]; then
+    msg "running ldconfig"
     ldconfig
     if [ $? -ne 0 ]
     then

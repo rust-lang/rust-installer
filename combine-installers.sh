@@ -10,7 +10,7 @@
 # except according to those terms.
 
 msg() {
-    echo "gen-install-script: $1"
+    echo "combine-installers: $1"
 }
 
 step_msg() {
@@ -20,11 +20,11 @@ step_msg() {
 }
 
 warn() {
-    echo "gen-install-script: WARNING: $1"
+    echo "combine-installers: WARNING: $1"
 }
 
 err() {
-    echo "gen-install-script: error: $1"
+    echo "combine-installers: error: $1"
     exit 1
 }
 
@@ -48,9 +48,9 @@ putvar() {
     eval TLEN=\${#$1}
     if [ $TLEN -gt 35 ]
     then
-        printf "gen-install-script: %-20s := %.35s ...\n" $1 "$T"
+        printf "combine-installers: %-20s := %.35s ...\n" $1 "$T"
     else
-        printf "gen-install-script: %-20s := %s %s\n" $1 "$T" "$2"
+        printf "combine-installers: %-20s := %s %s\n" $1 "$T" "$2"
     fi
 }
 
@@ -195,12 +195,15 @@ validate_opt () {
     done
 }
 
-msg "looking for install programs"
+msg "looking for programs"
 msg
 
-need_cmd sed
-need_cmd chmod
-need_cmd cat
+need_cmd tar
+need_cmd cp
+need_cmd rm
+need_cmd mkdir
+need_cmd echo
+need_cmd tr
 
 CFG_SRC_DIR="$(cd $(dirname $0) && pwd)"
 CFG_SELF="$0"
@@ -221,11 +224,15 @@ else
 fi
 
 valopt product-name "Product" "The name of the product, for display"
-valopt verify-bin "" "The command to run with --version to verify the install works"
-valopt rel-manifest-dir "${CFG_VERIFY_BIN}lib" "The directory under lib/ where the manifest lives"
+valopt package-name "package" "The name of the package, tarball"
+valopt verify-bin "program" "The command to run with --version to verify the install works"
+valopt rel-manifest-dir "${CFG_PACKAGE_NAME}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
-valopt output-script "${CFG_SRC_DIR}/install.sh" "The name of the output script"
 valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
+valopt input-tarballs "" "Installers to combine"
+valopt non-installed-overlay "" "Directory containing files that should not be installed"
+valopt work-dir "./workdir" "The directory to do temporary work and put the final image"
+valopt output-dir "./dist" "The location to put the final tarball"
 
 if [ $HELP -eq 1 ]
 then
@@ -238,24 +245,103 @@ validate_opt
 
 RUST_INSTALLER_VERSION=`cat "$CFG_SRC_DIR/rust-installer-version"`
 
-# Replace dashes in the success message with spaces (our arg handling botches spaces)
-CFG_PRODUCT_NAME=`echo "$CFG_PRODUCT_NAME" | sed "s/-/ /g"`
+# Create the work directory for the new installer
+mkdir -p "$CFG_WORK_DIR"
+need_ok "couldn't create work dir"
 
-# Replace dashes in the success message with spaces (our arg handling botches spaces)
-CFG_SUCCESS_MESSAGE=`echo "$CFG_SUCCESS_MESSAGE" | sed "s/-/ /g"`
+rm -Rf "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
+need_ok "couldn't delete work package dir"
 
-SCRIPT_TEMPLATE=`cat "${CFG_SRC_DIR}/install-template.sh"`
+mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
+need_ok "couldn't create work package dir"
 
-# Using /bin/echo because under sh emulation dash *seems* to escape \n, which screws up the template
-SCRIPT=`/bin/echo "${SCRIPT_TEMPLATE}"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/${CFG_PRODUCT_NAME}/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_VERIFY_BIN%%/${CFG_VERIFY_BIN}/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/${CFG_REL_MANIFEST_DIR}/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"${CFG_SUCCESS_MESSAGE}\"/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"${CFG_LEGACY_MANIFEST_DIRS}\"/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_RUST_INSTALLER_VERSION%%/\"$RUST_INSTALLER_VERSION\"/"`
+INPUT_TARBALLS=`echo "$CFG_INPUT_TARBALLS" | sed 's/,/ /g'`
 
-/bin/echo "${SCRIPT}" > "${CFG_OUTPUT_SCRIPT}"
-need_ok "couldn't write script"
-chmod u+x "${CFG_OUTPUT_SCRIPT}"
-need_ok "couldn't chmod script"
+# Merge each installer into the work directory of the new installer
+for input_tarball in $INPUT_TARBALLS; do
+
+    # Extract the input tarballs
+    tar xzf $input_tarball -C "$CFG_WORK_DIR"
+    need_ok "failed to extract tarball"
+
+    # Verify the version number
+    PKG_NAME=`echo "$input_tarball" | sed s/\.tar\.gz//g`
+    PKG_NAME=`basename $PKG_NAME`
+    VERSION=`cat "$CFG_WORK_DIR/$PKG_NAME/rust-installer-version"`
+    if [ "$RUST_INSTALLER_VERSION" != "$VERSION" ]; then
+	err "incorrect installer version in $input_tarball"
+    fi
+
+    # Interpret the manifest to copy the contents to the new installer
+    COMPONENTS=`cat "$CFG_WORK_DIR/$PKG_NAME/components"`
+    for component in $COMPONENTS; do
+	while read directive; do
+	    COMMAND=`echo $directive | cut -f1 -d:`
+	    FILE=`echo $directive | cut -f2 -d:`
+
+	    NEW_FILE_PATH="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$FILE"
+	    mkdir -p "$(dirname $NEW_FILE_PATH)"
+
+	    case "$COMMAND" in
+		file | dir)
+		    if [ -e "$NEW_FILE_PATH" ]; then
+			err "file $NEW_FILE_PATH already exists"
+		    fi
+		    cp -R "$CFG_WORK_DIR/$PKG_NAME/$FILE" "$NEW_FILE_PATH"
+		    need_ok "failed to copy file $FILE"
+		    ;;
+
+		* )
+		    err "unknown command"
+		    ;;
+
+	    esac
+	done < "$CFG_WORK_DIR/$PKG_NAME/manifest-$component.in"
+
+	# Copy the manifest
+	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in" ]; then
+	    err "manifest for $component already exists"
+	fi
+	cp "$CFG_WORK_DIR/$PKG_NAME/manifest-$component.in" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in"
+	need_ok "failed to copy manifest for $component"
+
+	# Merge the component name
+	echo "$component" >> "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
+	need_ok "failed to merge component $component"
+    done
+done
+
+# Write the version number
+echo "$RUST_INSTALLER_VERSION" > "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
+
+# Copy the overlay
+if [ -n "$CFG_NON_INSTALLED_OVERLAY" ]; then
+    OVERLAY_FILES=`(cd "$CFG_NON_INSTALLED_OVERLAY" && find . -type f)`
+    for f in $OVERLAY_FILES; do
+	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f" ]; then err "overlay $f exists"; fi
+
+	cp "$CFG_NON_INSTALLED_OVERLAY/$f" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f"
+	need_ok "failed to copy overlay $f"
+    done
+fi
+
+# Generate the install script
+"$CFG_SRC_DIR/gen-install-script.sh" \
+    --product-name="$CFG_PRODUCT_NAME" \
+    --verify-bin="$CFG_VERIFY_BIN" \
+    --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
+    --success-message="$CFG_SUCCESS_MESSAGE" \
+    --legacy-manifest-dirs="$CFG_LEGACY_MANIFEST_DIRS" \
+    --output-script="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/install.sh"
+
+need_ok "failed to generate install script"
+
+mkdir -p "$CFG_OUTPUT_DIR"
+need_ok "couldn't create output dir"
+
+rm -Rf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz"
+need_ok "couldn't delete old tarball"
+
+# Make a tarball
+tar -czf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz" -C "$CFG_WORK_DIR" "$CFG_PACKAGE_NAME"
+need_ok "failed to tar"
