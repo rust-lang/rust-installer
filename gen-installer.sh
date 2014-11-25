@@ -224,10 +224,12 @@ else
 fi
 
 valopt product-name "Product" "The name of the product, for display"
+valopt component-name "component" "The name of the component, distinct from other installed components"
 valopt package-name "package" "The name of the package, tarball"
 valopt verify-bin "program" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "${CFG_VERIFY_BIN}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
+valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
 valopt non-installed-prefixes "" "Path prefixes that should be included but not installed"
 valopt image-dir "./install-image" "The directory containing the installation medium"
 valopt work-dir "./workdir" "The directory to do temporary work"
@@ -294,16 +296,17 @@ need_ok "couldn't delete temp manifest"
 rm "$TEMP_NON_INSTALLED_PREFIXES"
 need_ok "couldn't delete temp file"
 
-MANIFEST_NAME="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR/manifest.in"
-
-mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR"
-need_ok "couldn't create manifest dir"
-
 # Delete blank line added from above loop
 NEW_MANIFEST=`echo "$NEW_MANIFEST" | sed "/^$/d"`
 
+MANIFEST_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$CFG_COMPONENT_NAME-manifest.in"
+COMPONENT_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
+
 # Write the manifest
-echo "$NEW_MANIFEST" > "$MANIFEST_NAME"
+echo "$NEW_MANIFEST" > "$MANIFEST_FILE"
+
+# Write the component name
+echo "$CFG_COMPONENT_NAME" > "$COMPONENT_FILE"
 
 # Generate the install script
 "$CFG_SRC_DIR/gen-install-script.sh" \
@@ -311,6 +314,7 @@ echo "$NEW_MANIFEST" > "$MANIFEST_NAME"
     --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
     --success-message="$CFG_SUCCESS_MESSAGE" \
+    --legacy-manifest-dirs="$CFG_LEGACY_MANIFEST_DIRS" \
     --output-script="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/install.sh"
 
 need_ok "failed to generate install script"    

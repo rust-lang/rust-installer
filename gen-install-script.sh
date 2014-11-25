@@ -225,6 +225,7 @@ valopt verify-bin "program" "The command to run with --version to verify the ins
 valopt rel-manifest-dir "${CFG_VERIFY_BIN}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
 valopt output-script "${CFG_SRC_DIR}/install.sh" "The name of the output script"
+valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
 
 if [ $HELP -eq 1 ]
 then
@@ -245,6 +246,7 @@ SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/${CFG_PRODUCT_NAME}/
 SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_VERIFY_BIN%%/${CFG_VERIFY_BIN}/"`
 SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/${CFG_REL_MANIFEST_DIR}/"`
 SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"${CFG_SUCCESS_MESSAGE}\"/"`
+SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"${CFG_LEGACY_MANIFEST_DIRS}\"/"`
 
 echo "${SCRIPT}" > "${CFG_OUTPUT_SCRIPT}"
 need_ok "couldn't write script"

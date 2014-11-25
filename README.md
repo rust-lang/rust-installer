@@ -13,7 +13,9 @@ used by a future combined installer of Rust + Cargo.
                    --work-dir=./temp \
                    --output-dir=./dist \
                    --non-installed-prefixes="foo,bin/bar,lib/baz" \
-                   --package-name=rustc-nightly-i686-apple-darwin
+                   --package-name=rustc-nightly-i686-apple-darwin \
+		   --component-name=rustc \
+		   --legacy-manifest-dirs=rustlib
 ```
 
 Or, to just generate the script.
@@ -23,7 +25,8 @@ Or, to just generate the script.
                         --verify-bin=rustc \
                         --rel-manifest-dir=rustlib \
                         --success-message=Rust-is-ready-to-roll. \
-                        --output-script=install.sh
+                        --output-script=install.sh \
+			--legacy-manifest-dirs=rustlib
 ```
 
 *Note: the dashes in `success-message` are converted to spaces. The
