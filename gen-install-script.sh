@@ -240,13 +240,14 @@ CFG_SUCCESS_MESSAGE=`echo "$CFG_SUCCESS_MESSAGE" | sed "s/-/ /g"`
 
 SCRIPT_TEMPLATE=`cat "${CFG_SRC_DIR}/install-template.sh"`
 
-SCRIPT=`echo "${SCRIPT_TEMPLATE}"`
-SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/${CFG_PRODUCT_NAME}/"`
-SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_VERIFY_BIN%%/${CFG_VERIFY_BIN}/"`
-SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/${CFG_REL_MANIFEST_DIR}/"`
-SCRIPT=`echo "${SCRIPT}" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"${CFG_SUCCESS_MESSAGE}\"/"`
+# Using /bin/echo because under sh emulation dash *seems* to escape \n, which screws up the template
+SCRIPT=`/bin/echo "${SCRIPT_TEMPLATE}"`
+SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/${CFG_PRODUCT_NAME}/"`
+SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_VERIFY_BIN%%/${CFG_VERIFY_BIN}/"`
+SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/${CFG_REL_MANIFEST_DIR}/"`
+SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"${CFG_SUCCESS_MESSAGE}\"/"`
 
-echo "${SCRIPT}" > "${CFG_OUTPUT_SCRIPT}"
+/bin/echo "${SCRIPT}" > "${CFG_OUTPUT_SCRIPT}"
 need_ok "couldn't write script"
 chmod u+x "${CFG_OUTPUT_SCRIPT}"
 need_ok "couldn't chmod script"
