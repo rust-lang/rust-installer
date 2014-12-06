@@ -271,36 +271,42 @@ MANIFEST=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\/
 TEMP_MANIFEST="$CFG_WORK_DIR/tmp-manifest-$CFG_PACKAGE_NAME"
 TEMP_NON_INSTALLED_PREFIXES="$CFG_WORK_DIR/tmp-non-installed-prefixes-$CFG_PACKAGE_NAME"
 
-echo "$MANIFEST" > "$TEMP_MANIFEST"
-echo "$NON_INSTALLED_PREFIXES" > "$TEMP_NON_INSTALLED_PREFIXES"
+if [ -n "$NON_INSTALLED_PREFIXES" ]; then
 
-# Remove all non-installed-files
-NEW_MANIFEST=""
-while read f; do
-    no_install=0
-    while read nf; do
-	echo "$f" | grep "^$nf" > /dev/null
-	if [ "$?" = "0" ]; then
-	    no_install=1
+    echo "$MANIFEST" > "$TEMP_MANIFEST"
+    echo "$NON_INSTALLED_PREFIXES" > "$TEMP_NON_INSTALLED_PREFIXES"
+
+    # Remove all non-installed-files
+    NEW_MANIFEST=""
+    while read f; do
+	no_install=0
+	while read nf; do
+	    echo "$f" | grep "^$nf" > /dev/null
+	    if [ "$?" = "0" ]; then
+		no_install=1
+	    fi
+	done < "$TEMP_NON_INSTALLED_PREFIXES"
+	if [ $no_install -eq 0 ]; then
+	    NEW_MANIFEST="$NEW_MANIFEST\n$f"
 	fi
-    done < "$TEMP_NON_INSTALLED_PREFIXES"
-    if [ $no_install -eq 0 ]; then
-	NEW_MANIFEST="$NEW_MANIFEST\n$f"
-    fi
-done < "$TEMP_MANIFEST"
+    done < "$TEMP_MANIFEST"
 
-rm "$TEMP_MANIFEST"
-need_ok "couldn't delete temp manifest"
-rm "$TEMP_NON_INSTALLED_PREFIXES"
-need_ok "couldn't delete temp file"
+    rm "$TEMP_MANIFEST"
+    need_ok "couldn't delete temp manifest"
+    rm "$TEMP_NON_INSTALLED_PREFIXES"
+    need_ok "couldn't delete temp file"
+
+    # Delete blank line added from above loop
+    NEW_MANIFEST=`echo "$NEW_MANIFEST" | sed "/^$/d"`
+
+else
+    NEW_MANIFEST="$MANIFEST"
+fi
 
 MANIFEST_NAME="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR/manifest.in"
 
 mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/lib/$CFG_REL_MANIFEST_DIR"
 need_ok "couldn't create manifest dir"
-
-# Delete blank line added from above loop
-NEW_MANIFEST=`echo "$NEW_MANIFEST" | sed "/^$/d"`
 
 # Write the manifest
 echo "$NEW_MANIFEST" > "$MANIFEST_NAME"
