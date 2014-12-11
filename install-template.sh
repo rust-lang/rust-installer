@@ -306,16 +306,7 @@ OPTIONS=""
 BOOL_OPTIONS=""
 VAL_OPTIONS=""
 
-# On windows we just store the libraries in the bin directory so
-# that the dynamic linker can find them.
-# --libdir can be used to override this.
-CFG_LIBDIR_RELATIVE=lib
 if [ "$CFG_OSTYPE" = "pc-windows-gnu" ]
-then
-    CFG_LIBDIR_RELATIVE=bin
-fi
-
-if [ "$CFG_OSTYPE" = "pc-mingw32" ] || [ "$CFG_OSTYPE" = "w64-mingw32" ]
 then
     CFG_LD_PATH_VAR=PATH
     CFG_OLD_LD_PATH_VAR=$PATH
@@ -334,7 +325,7 @@ opt verify 1 "verify that the installed binaries run correctly"
 valopt prefix "/usr/local" "set installation prefix"
 # NB This isn't quite the same definition as in `configure`.
 # just using 'lib' instead of configure's CFG_LIBDIR_RELATIVE
-valopt libdir "${CFG_DESTDIR}${CFG_PREFIX}/${CFG_LIBDIR_RELATIVE}" "install libraries"
+valopt libdir "${CFG_DESTDIR}${CFG_PREFIX}/lib" "install libraries"
 valopt mandir "${CFG_DESTDIR}${CFG_PREFIX}/share/man" "install man pages in PATH"
 
 if [ $HELP -eq 1 ]
@@ -513,7 +504,7 @@ while read p; do
     need_ok "failed to update manifest"
 
 # The manifest lists all files to install
-done < "${CFG_SRC_DIR}/${CFG_LIBDIR_RELATIVE}/${TEMPLATE_REL_MANIFEST_DIR}/manifest.in"
+done < "${CFG_SRC_DIR}/lib/${TEMPLATE_REL_MANIFEST_DIR}/manifest.in"
 
 msg
 
