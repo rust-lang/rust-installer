@@ -366,7 +366,7 @@ then
         then
             err "can't execute rustc binary on this platform"
         fi
-        export $CFG_LD_PATH_VAR=$CFG_OLD_LD_PATH_VAR
+        export $CFG_LD_PATH_VAR="$CFG_OLD_LD_PATH_VAR"
     fi
 fi
 
