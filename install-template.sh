@@ -716,23 +716,18 @@ fi
 # add something to the appropriate environment variable.
 if [ -z "${CFG_DISABLE_VERIFY}" ]
 then
-    msg "verifying installed binaries are executable"
-    "${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version 2> /dev/null 1> /dev/null
+    export $CFG_LD_PATH_VAR="${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
+    "${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
     if [ $? -ne 0 ]
     then
-        export $CFG_LD_PATH_VAR="${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
-        "${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
-        if [ $? -ne 0 ]
-        then
-            ERR="can't execute installed binaries. "
-            ERR="${ERR}installation may be broken. "
-            ERR="${ERR}if this is expected then rerun install.sh with \`--disable-verify\` "
-            ERR="${ERR}or \`make install\` with \`--disable-verify-install\`"
-            err "${ERR}"
-        else
-            echo
-            echo "    Note: please ensure '${CFG_PREFIX}/lib' is added to ${CFG_LD_PATH_VAR}"
-        fi
+        ERR="can't execute installed binaries. "
+        ERR="${ERR}installation may be broken. "
+        ERR="${ERR}if this is expected then rerun install.sh with \`--disable-verify\` "
+        ERR="${ERR}or \`make install\` with \`--disable-verify-install\`"
+        err "${ERR}"
+    else
+        echo
+        echo "    Note: please ensure '${CFG_PREFIX}/lib' is added to ${CFG_LD_PATH_VAR}"
     fi
 fi
 
