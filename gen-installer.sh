@@ -290,8 +290,7 @@ MANIFEST=`/bin/echo -n "$MANIFEST" | sed s/^/file:/`
 
 # Add 'dir:' directives
 for bulk_dir in $BULK_DIRS; do
-    # Escape the \n with awk
-    MANIFEST=`echo "$MANIFEST\ndir:$bulk_dir" | awk /\n/`
+    MANIFEST=`echo "$MANIFEST" && echo "dir:$bulk_dir"`
 done
 
 # The above step may have left a leading empty line if there were only
