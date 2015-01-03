@@ -248,7 +248,7 @@ SCRIPT_TEMPLATE=`cat "${CFG_SRC_DIR}/install-template.sh"`
 
 # Using /bin/echo because under sh emulation dash *seems* to escape \n, which screws up the template
 SCRIPT=`/bin/echo "${SCRIPT_TEMPLATE}"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/${CFG_PRODUCT_NAME}/"`
+SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/\"${CFG_PRODUCT_NAME}\"/"`
 SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_VERIFY_BIN%%/${CFG_VERIFY_BIN}/"`
 SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/${CFG_REL_MANIFEST_DIR}/"`
 SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"${CFG_SUCCESS_MESSAGE}\"/"`

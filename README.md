@@ -72,4 +72,3 @@ To combine installers.
   installs/uninstalls.
 * Fix argument handling for spaces.
 * Add --bindir.
-* Fix problem with 'Rust-Documentation' uninstall message.
