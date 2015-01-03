@@ -674,7 +674,7 @@ for component in $COMPONENTS; do
 		    err "$FILE_INSTALL_PATH already exists"
 		fi
 
-		cp -R "$CFG_SRC_DIR/$FILE" "$FILE_INSTALL_PATH"
+		umask 022 && cp -R "$CFG_SRC_DIR/$FILE" "$FILE_INSTALL_PATH"
 		need_ok "failed to copy directory"
 
 		# Update the manifest
