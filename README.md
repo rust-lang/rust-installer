@@ -49,3 +49,17 @@ To combine installers.
                         --legacy-manifest-dirs=rustlib \
                         --input-tarballs=./rustc.tar.gz,cargo.tar.gz
 ```
+
+# Future work
+
+* Make install.sh not have to be customized, pull it's data from a
+  config file.
+* Install an uninstall.sh script.
+* Allow components to be selected during install.
+* Allow components to be modified from an existing install.
+* Be more resiliant to installation failures, particularly if the disk
+  is full.
+* Pre-install and post-uninstall scripts.
+* Make the verify-bin a per-component option.
+* Be more thoughtful about overwriting existing files.
+* Allow components to depend on or disallow other components.
