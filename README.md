@@ -63,3 +63,8 @@ To combine installers.
 * Make the verify-bin a per-component option.
 * Be more thoughtful about overwriting existing files.
 * Allow components to depend on or disallow other components.
+* Sanity check that expected destination dirs (bin, lib, share/doc exist).
+* Install docs to system-specific locations (add compatibility uninstall code).
+* Add --docdir flag. Is there a standard name for this?
+* Remove doc directories on uninstall.
+* Remove empty directories on uninstall?
