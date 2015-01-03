@@ -532,7 +532,7 @@ if [ -n "$INSTALLED_VERSION" ]; then
 			dir)
 			    msg "removing directory $FILE"
 			    rm -Rf "$FILE"
-			    if [ $? -ne 0]; then
+			    if [ $? -ne 0 ]; then
 				warn "unable to remove directory $FILE"
 			    fi
 			    ;;
