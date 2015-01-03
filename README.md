@@ -67,4 +67,8 @@ To combine installers.
 * Add --docdir flag. Is there a standard name for this?
 * Remove doc directories on uninstall.
 * Remove empty directories on uninstall?
-* Install bulk  dirs using 'install -d', not 'cp'
+* Install bulk  dirs using 'install -d', not 'cp'.
+* Detect mismatches in --prefix, --mandir, etc. in follow-on
+  installs/uninstalls.
+* Fix argument handling for spaces.
+* Add --bindir.
