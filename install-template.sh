@@ -215,6 +215,7 @@ need_cmd grep
 need_cmd uname
 need_cmd tr
 need_cmd sed
+need_cmd chmod
 
 CFG_SRC_DIR="$(cd $(dirname $0) && pwd)"
 CFG_SELF="$0"
@@ -674,8 +675,12 @@ for component in $COMPONENTS; do
 		    err "$FILE_INSTALL_PATH already exists"
 		fi
 
-		umask 022 && cp -R "$CFG_SRC_DIR/$FILE" "$FILE_INSTALL_PATH"
+		cp -R "$CFG_SRC_DIR/$FILE" "$FILE_INSTALL_PATH"
 		need_ok "failed to copy directory"
+
+                # Set permissions. 0755 for dirs, 644 for files
+                chmod -R u+rwX,go+rX,go-w "$FILE_INSTALL_PATH"
+                need_ok "failed to set permissions on directory"
 
 		# Update the manifest
 		echo "dir:$FILE_INSTALL_PATH" >> "$INSTALLED_MANIFEST"
