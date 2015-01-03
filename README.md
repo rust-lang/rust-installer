@@ -62,7 +62,7 @@ To combine installers.
 * Pre-install and post-uninstall scripts.
 * Make the verify-bin a per-component option.
 * Be more thoughtful about overwriting existing files.
-* Allow components to depend on or disallow other components.
+* Allow components to depend on or contradict other components.
 * Sanity check that expected destination dirs (bin, lib, share exist)?
 * Add --docdir flag. Is there a standard name for this?
 * Remove empty directories on uninstall.
@@ -70,3 +70,5 @@ To combine installers.
   installs/uninstalls.
 * Fix argument handling for spaces.
 * Add --bindir.
+* Store components in their own directories for cases where they
+  contain the same files.
