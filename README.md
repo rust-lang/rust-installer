@@ -65,9 +65,7 @@ To combine installers.
 * Allow components to depend on or disallow other components.
 * Sanity check that expected destination dirs (bin, lib, share exist)?
 * Add --docdir flag. Is there a standard name for this?
-* Remove doc directories on uninstall.
-* Remove empty directories on uninstall?
-* Install bulk  dirs using 'install -d', not 'cp'.
+* Remove empty directories on uninstall.
 * Detect mismatches in --prefix, --mandir, etc. in follow-on
   installs/uninstalls.
 * Fix argument handling for spaces.
