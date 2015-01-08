@@ -225,7 +225,7 @@ fi
 
 valopt product-name "Product" "The name of the product, for display"
 valopt package-name "package" "The name of the package, tarball"
-valopt verify-bin "program" "The command to run with --version to verify the install works"
+valopt verify-bin "" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "${CFG_PACKAGE_NAME}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
 valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
