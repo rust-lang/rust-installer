@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e -u
+
 S="$(cd $(dirname $0) && pwd)"
 
 TEST_DIR="$S/test"
@@ -15,22 +17,18 @@ case $(uname -s) in
         ;;
 esac
 
-pre() {
-    echo
+say() {
     echo "test: $1"
-    echo
+}
+
+pre() {
+    echo "test: $1"
     rm -Rf "$WORK_DIR"
     rm -Rf "$OUT_DIR"
     rm -Rf "$PREFIX_DIR"
     mkdir -p "$WORK_DIR"
     mkdir -p "$OUT_DIR"
     mkdir -p "$PREFIX_DIR"
-}
-
-post() {
-    rm -Rf "$WORK_DIR"
-    rm -Rf "$OUT_DIR"
-    rm -Rf "$PREFIX_DIR"
 }
 
 need_ok() {
@@ -43,34 +41,164 @@ need_ok() {
     fi
 }
 
+fail() {
+    echo
+    echo "$1"
+    echo
+    echo "TEST FAILED!"
+    echo
+    exit 1
+}
+
 try() {
-    cmd="$@"
-    echo \$ "$cmd"
-    OUTPUT=`$@`
+    set +e
+    _cmd="$@"
+    _output=`$@ 2>&1`
     if [ $? -ne 0 ]; then
-	echo
+	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$OUTPUT"
+	/bin/echo "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
 	exit 1
+    else
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_CMD-}" ]; then
+	    echo \$ "$_cmd"
+	fi
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
+	    /bin/echo "$_output"
+	fi
     fi
+    set -e
 }
 
 expect_fail() {
-    cmd="$@"
-    echo \$ "$cmd"
-    OUTPUT=`$@`
+    set +e
+    _cmd="$@"
+    _output=`$@ 2>&1`
     if [ $? -eq 0 ]; then
-	echo
+	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$OUTPUT"
+	/bin/echo "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
 	exit 1
+    else
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_CMD-}" ]; then
+	    echo \$ "$_cmd"
+	fi
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
+	    /bin/echo "$_output"
+	fi
     fi
+    set -e
+}
+
+expect_output_ok() {
+    set +e
+    local _expected="$1"
+    shift 1
+    _cmd="$@"
+    _output=`$@ 2>&1`
+    if [ $? -ne 0 ]; then
+	echo \$ "$_cmd"
+	# Using /bin/echo to avoid escaping
+	/bin/echo "$_output"
+	echo
+	echo "TEST FAILED!"
+	echo
+	exit 1
+    elif ! echo "$_output" | grep -q "$_expected"; then
+	echo \$ "$_cmd"
+	/bin/echo "$_output"
+	echo
+	echo "missing expected output '$_expected'"
+	echo
+	echo
+	echo "TEST FAILED!"
+	echo
+	exit 1
+    else
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_CMD-}" ]; then
+	    echo \$ "$_cmd"
+	fi
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
+	    /bin/echo "$_output"
+	fi
+    fi
+    set -e
+}
+
+expect_output_fail() {
+    set +e
+    local _expected="$1"
+    shift 1
+    _cmd="$@"
+    _output=`$@ 2>&1`
+    if [ $? -eq 0 ]; then
+	echo \$ "$_cmd"
+	# Using /bin/echo to avoid escaping
+	/bin/echo "$_output"
+	echo
+	echo "TEST FAILED!"
+	echo
+	exit 1
+    elif ! echo "$_output" | grep -q "$_expected"; then
+	echo \$ "$_cmd"
+	/bin/echo "$_output"
+	echo
+	echo "missing expected output '$_expected'"
+	echo
+	echo
+	echo "TEST FAILED!"
+	echo
+	exit 1
+    else
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_CMD-}" ]; then
+	    echo \$ "$_cmd"
+	fi
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
+	    /bin/echo "$_output"
+	fi
+    fi
+    set -e
+}
+
+expect_not_output_ok() {
+    set +e
+    local _expected="$1"
+    shift 1
+    _cmd="$@"
+    _output=`$@ 2>&1`
+    if [ $? -ne 0 ]; then
+	echo \$ "$_cmd"
+	# Using /bin/echo to avoid escaping
+	/bin/echo "$_output"
+	echo
+	echo "TEST FAILED!"
+	echo
+	exit 1
+    elif echo "$_output" | grep -q "$_expected"; then
+	echo \$ "$_cmd"
+	/bin/echo "$_output"
+	echo
+	echo "unexpected output '$_expected'"
+	echo
+	echo
+	echo "TEST FAILED!"
+	echo
+	exit 1
+    else
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_CMD-}" ]; then
+	    echo \$ "$_cmd"
+	fi
+	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
+	    /bin/echo "$_output"
+	fi
+    fi
+    set -e
 }
 
 # Installation tests
@@ -86,7 +214,6 @@ try test -e "$PREFIX_DIR/dir-to-install/foo"
 try test -e "$PREFIX_DIR/bin/program"
 try test -e "$PREFIX_DIR/bin/program2"
 try test -e "$PREFIX_DIR/bin/bad-bin"
-post
 
 pre "basic uninstall"
 try sh "$S/gen-installer.sh" \
@@ -101,7 +228,6 @@ try test ! -e "$PREFIX_DIR/bin/program"
 try test ! -e "$PREFIX_DIR/bin/program2"
 try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
-post
 
 pre "not installed files"
 try sh "$S/gen-installer.sh" \
@@ -114,7 +240,6 @@ try test -e "$WORK_DIR/package/dir-to-not-install"
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
 try test ! -e "$PREFIX_DIR/something-to-not-install"
 try test ! -e "$PREFIX_DIR/dir-to-not-install"
-post
 
 pre "verify override"
 try sh "$S/gen-installer.sh" \
@@ -123,7 +248,6 @@ try sh "$S/gen-installer.sh" \
     --output-dir="$OUT_DIR" \
     --verify-bin=program2
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-post
 
 pre "tarball with package name"
 try sh "$S/gen-installer.sh" \
@@ -133,7 +257,6 @@ try sh "$S/gen-installer.sh" \
     --package-name=rustc-nightly
 try "$WORK_DIR/rustc-nightly/install.sh" --prefix="$PREFIX_DIR"
 try test -e "$OUT_DIR/rustc-nightly.tar.gz"
-post
 
 pre "bulk directory"
 try sh "$S/gen-installer.sh" \
@@ -149,7 +272,6 @@ try test -e "$PREFIX_DIR/bin/program2"
 try test -e "$PREFIX_DIR/bin/bad-bin"
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --uninstall
 try test ! -e "$PREFIX_DIR/dir-to-install"
-post
 
 pre "nested bulk directory"
 try sh "$S/gen-installer.sh" \
@@ -161,7 +283,6 @@ try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
 try test -e "$PREFIX_DIR/dir-to-install/qux/bar"
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --uninstall
 try test ! -e "$PREFIX_DIR/dir-to-install/qux"
-post
 
 pre "only bulk directory, no files"
 try sh "$S/gen-installer.sh" \
@@ -173,7 +294,6 @@ try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
 try test -e "$PREFIX_DIR/dir-to-install/foo"
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --uninstall
 try test ! -e "$PREFIX_DIR/dir-to-install/foo"
-post
 
 pre "nested not installed files"
 try sh "$S/gen-installer.sh" \
@@ -183,7 +303,6 @@ try sh "$S/gen-installer.sh" \
     --non-installed-prefixes=dir-to-install/qux/bar
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
 try test ! -e "$PREFIX_DIR/dir-to-install/qux/bar"
-post
 
 # Upgrade tests
 
@@ -220,7 +339,6 @@ try test ! -e "$PREFIX_DIR/bin/program"
 try test ! -e "$PREFIX_DIR/bin/program2"
 try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
-post
 
 pre "upgrade v1 -> v2 with multiple legacy manifests"
 mkdir "$WORK_DIR/v1"
@@ -261,7 +379,6 @@ try test ! -e "$PREFIX_DIR/bin/program"
 try test ! -e "$PREFIX_DIR/bin/program2"
 try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
-post
 
 pre "multiple components"
 try sh "$S/gen-installer.sh" \
@@ -292,7 +409,6 @@ try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try "$WORK_DIR/c2/package/install.sh" --prefix="$PREFIX_DIR" --uninstall
 try test ! -e "$PREFIX_DIR/bin/cargo"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
-post
 
 # Combined installer tests
 
@@ -330,7 +446,6 @@ try test ! -e "$PREFIX_DIR/bin/program2"
 try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try test ! -e "$PREFIX_DIR/bin/cargo"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
-post
 
 pre "combine three installers"
 try sh "$S/gen-installer.sh" \
@@ -374,7 +489,6 @@ try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try test ! -e "$PREFIX_DIR/bin/cargo"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
 try test ! -e "$PREFIX_DIR/dir-to-install/qux/bar"
-post
 
 pre "combine installers with overlay"
 try sh "$S/gen-installer.sh" \
@@ -401,7 +515,6 @@ try sh "$S/combine-installers.sh" \
 try test -e "$WORK_DIR/rust/README"
 try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
 try test ! -e "$PREFIX_DIR/README"
-post
 
 pre "combined with bulk dirs"
 try sh "$S/gen-installer.sh" \
@@ -427,7 +540,6 @@ try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
 try test -e "$PREFIX_DIR/dir-to-install/foo"
 try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
 try test ! -e "$PREFIX_DIR/dir-to-install"
-post
 
 pre "combine install with separate uninstall"
 try sh "$S/gen-installer.sh" \
@@ -467,7 +579,6 @@ try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try "$WORK_DIR/cargo/install.sh --uninstall" --prefix="$PREFIX_DIR"
 try test ! -e "$PREFIX_DIR/bin/cargo"
 try test ! -e "$PREFIX_DIR/lib/packagelib"
-post
 
 pre "combined v1 -> v2 upgrade"
 try sh "$S/gen-installer.sh" \
@@ -525,7 +636,6 @@ try test ! -e "$PREFIX_DIR/bin/program2"
 try test ! -e "$PREFIX_DIR/bin/bad-bin"
 try test ! -e "$PREFIX_DIR/bin/cargo"
 try test ! -e "$PREFIX_DIR/lib/rustlib"
-post
 
 # Smoke tests
 
@@ -536,9 +646,8 @@ try sh "$S/gen-installer.sh" \
     --work-dir="$WORK_DIR" \
     --output-dir="$OUT_DIR"
 expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-post
 
-if [ ! -n "$WINDOWS" ]; then
+if [ ! -n "${WINDOWS-}" ]; then
     # chmod doesn't work on windows
     pre "can't write error"
     try sh "$S/gen-installer.sh" \
@@ -548,7 +657,6 @@ if [ ! -n "$WINDOWS" ]; then
     chmod u-w "$PREFIX_DIR"
     expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
     chmod u+w "$PREFIX_DIR"
-    post
 fi
 
 pre "can't install to installer"
@@ -558,7 +666,6 @@ try sh "$S/gen-installer.sh" \
     --output-dir="$OUT_DIR" \
     --package-name=my-package
 expect_fail "$WORK_DIR/my-package/install.sh" --prefix="$WORK_DIR/my-package"
-post
 
 pre "upgrade from future installer error"
 try sh "$S/gen-installer.sh" \
@@ -569,7 +676,6 @@ try sh "$S/gen-installer.sh" \
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
 echo 100 > "$PREFIX_DIR/lib/rustlib/rust-installer-version"
 expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-post
 
 pre "disable-verify"
 try sh "$S/gen-installer.sh" \
@@ -578,7 +684,6 @@ try sh "$S/gen-installer.sh" \
     --work-dir="$WORK_DIR" \
     --output-dir="$OUT_DIR"
 try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --disable-verify
-post
 
 # TODO: DESTDIR
 # TODO: mandir/libdir/bindir, etc.
