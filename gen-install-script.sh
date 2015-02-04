@@ -9,8 +9,10 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+set -u
+
 msg() {
-    echo "gen-install-script: $1"
+    echo "install: ${1-}"
 }
 
 step_msg() {
@@ -20,11 +22,11 @@ step_msg() {
 }
 
 warn() {
-    echo "gen-install-script: WARNING: $1"
+    echo "install: WARNING: $1" >&2
 }
 
 err() {
-    echo "gen-install-script: error: $1"
+    echo "install: error: $1" >&2
     exit 1
 }
 
@@ -48,9 +50,9 @@ putvar() {
     eval TLEN=\${#$1}
     if [ $TLEN -gt 35 ]
     then
-        printf "gen-install-script: %-20s := %.35s ...\n" $1 "$T"
+        printf "install: %-20s := %.35s ...\n" $1 "$T"
     else
-        printf "gen-install-script: %-20s := %s %s\n" $1 "$T" "$2"
+        printf "install: %-20s := %s %s\n" $1 "$T"
     fi
 }
 
@@ -219,6 +221,10 @@ then
 else
     step_msg "processing $CFG_SELF args"
 fi
+
+OPTIONS=""
+BOOL_OPTIONS=""
+VAL_OPTIONS=""
 
 valopt product-name "Product" "The name of the product, for display"
 valopt verify-bin "" "The command to run with --version to verify the install works"

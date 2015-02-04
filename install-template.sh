@@ -9,8 +9,11 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+# No undefined variables
+set -u
+
 msg() {
-    echo "install: $1"
+    echo "install: ${1-}"
 }
 
 step_msg() {
@@ -50,7 +53,7 @@ putvar() {
     then
         printf "install: %-20s := %.35s ...\n" $1 "$T"
     else
-        printf "install: %-20s := %s %s\n" $1 "$T" "$2"
+        printf "install: %-20s := %s %s\n" $1 "$T"
     fi
 }
 
@@ -310,14 +313,14 @@ VAL_OPTIONS=""
 if [ "$CFG_OSTYPE" = "pc-windows-gnu" ]
 then
     CFG_LD_PATH_VAR=PATH
-    CFG_OLD_LD_PATH_VAR="$PATH"
+    CFG_OLD_LD_PATH_VAR="${PATH-}"
 elif [ "$CFG_OSTYPE" = "apple-darwin" ]
 then
     CFG_LD_PATH_VAR=DYLD_LIBRARY_PATH
-    CFG_OLD_LD_PATH_VAR="$DYLD_LIBRARY_PATH"
+    CFG_OLD_LD_PATH_VAR="${DYLD_LIBRARY_PATH-}"
 else
     CFG_LD_PATH_VAR=LD_LIBRARY_PATH
-    CFG_OLD_LD_PATH_VAR="$LD_LIBRARY_PATH"
+    CFG_OLD_LD_PATH_VAR="${LD_LIBRARY_PATH-}"
 fi
 
 flag uninstall "only uninstall from the installation prefix"
@@ -364,10 +367,10 @@ if [ -z "$TEMPLATE_VERIFY_BIN" ]; then
 fi
 
 # Sanity check: can we run the binaries?
-if [ -z "${CFG_DISABLE_VERIFY}" ]
+if [ -z "${CFG_DISABLE_VERIFY-}" ]
 then
     # Don't do this if uninstalling. Failure here won't help in any way.
-    if [ -z "${CFG_UNINSTALL}" ]
+    if [ -z "${CFG_UNINSTALL-}" ]
     then
         msg "verifying platform can run binaries"
         export $CFG_LD_PATH_VAR="${CFG_SRC_DIR}/lib:$CFG_OLD_LD_PATH_VAR"
@@ -462,6 +465,7 @@ for md in $LEGACY_MANIFEST_DIRS; do
 done
 
 # Load the version of the installed installer
+INSTALLED_VERSION=
 if [ -f "$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version" ]; then
     INSTALLED_VERSION=`cat "$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version"`
 
@@ -470,6 +474,7 @@ if [ -f "$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version" ]; then
 fi
 
 # If there's something installed, then uninstall
+UNINSTALLED_SOMETHING=false
 if [ -n "$INSTALLED_VERSION" ]; then
     # Check the version of the installed installer
     case "$INSTALLED_VERSION" in
@@ -569,17 +574,17 @@ if [ -n "$INSTALLED_VERSION" ]; then
 	fi
     fi
 
-    UNINSTALLED_SOMETHING=1
+    UNINSTALLED_SOMETHING=true
 fi
 
 # There's no installed version. If we were asked to uninstall, then that's a problem.
-if [ -n "${CFG_UNINSTALL}" -a ! -n "$UNINSTALLED_SOMETHING" ]
+if [ -n "${CFG_UNINSTALL-}" -a "$UNINSTALLED_SOMETHING" = false ]
 then
     err "unable to find installation manifest at ${CFG_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}"
 fi
 
 # If we're only uninstalling then exit
-if [ -n "${CFG_UNINSTALL}" ]
+if [ -n "${CFG_UNINSTALL-}" ]
 then
     echo
     echo "    ${TEMPLATE_PRODUCT_NAME} is uninstalled."
@@ -703,7 +708,7 @@ done
 echo "$TEMPLATE_RUST_INSTALLER_VERSION" > "${ABS_LIBDIR}/${TEMPLATE_REL_MANIFEST_DIR}/rust-installer-version"
 
 # Run ldconfig to make dynamic libraries available to the linker
-if [ "$CFG_OSTYPE" = "unknown-linux-gnu" -a ! -n "$CFG_DISABLE_LDCONFIG" ]; then
+if [ "$CFG_OSTYPE" = "unknown-linux-gnu" -a ! -n "${CFG_DISABLE_LDCONFIG-}" ]; then
     msg "running ldconfig"
     ldconfig
     if [ $? -ne 0 ]
@@ -717,7 +722,7 @@ fi
 #
 # As with the verification above, make sure the right LD_LIBRARY_PATH-equivalent
 # is in place.
-if [ -z "${CFG_DISABLE_VERIFY}" ]
+if [ -z "${CFG_DISABLE_VERIFY-}" ]
 then
     export $CFG_LD_PATH_VAR="${CFG_DESTDIR}${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
     "${CFG_DESTDIR}${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
