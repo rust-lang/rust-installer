@@ -743,6 +743,18 @@ disable_verify() {
 }
 runtest disable_verify
 
+destdir() {
+    try sh "$S/gen-installer.sh" \
+	--verify-bin=program \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --destdir="$PREFIX_DIR/" --prefix=prefix
+    try test -e "$PREFIX_DIR/prefix/bin/program"
+}
+runtest destdir
+
+
 # TODO: DESTDIR
 # TODO: mandir/libdir/bindir, etc.
 

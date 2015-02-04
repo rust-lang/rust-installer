@@ -396,7 +396,7 @@ need_ok "failed to remove install probe"
 # That would surely cause chaos.
 msg "verifying destination is not the same as source"
 INSTALLER_DIR="$(cd $(dirname $0) && pwd)"
-PREFIX_DIR="$(cd ${CFG_PREFIX} && pwd)"
+PREFIX_DIR="$(cd ${CFG_DESTDIR}${CFG_PREFIX} && pwd)"
 if [ "${INSTALLER_DIR}" = "${PREFIX_DIR}" ]
 then
     err "can't install to same directory as installer"
@@ -485,7 +485,7 @@ if [ -n "$INSTALLED_VERSION" ]; then
 
 	# TODO: If this is an unknown (future) version then bail.
 	*)
-	    echo "The copy of $TEMPLATE_PRODUCT_NAME at $CFG_PREFIX was installed using an"
+	    echo "The copy of $TEMPLATE_PRODUCT_NAME at ${CFG_DESTDIR}${CFG_PREFIX} was installed using an"
 	    echo "unknown version ($INSTALLED_VERSION) of rust-installer."
 	    echo "Uninstall it first with the installer used for the original installation"
 	    echo "before continuing."
@@ -721,8 +721,8 @@ fi
 # add something to the appropriate environment variable.
 if [ -z "${CFG_DISABLE_VERIFY}" ]
 then
-    export $CFG_LD_PATH_VAR="${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
-    "${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
+    export $CFG_LD_PATH_VAR="${CFG_DESTDIR}${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
+    "${CFG_DESTDIR}${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
     if [ $? -ne 0 ]
     then
         ERR="can't execute installed binaries. "
@@ -732,7 +732,7 @@ then
         err "${ERR}"
     else
         echo
-        echo "    Note: please ensure '${CFG_PREFIX}/lib' is added to ${CFG_LD_PATH_VAR}"
+        echo "    Note: please ensure '${CFG_DESTDIR}${CFG_PREFIX}/lib' is added to ${CFG_LD_PATH_VAR}"
     fi
 fi
 
