@@ -310,14 +310,14 @@ VAL_OPTIONS=""
 if [ "$CFG_OSTYPE" = "pc-windows-gnu" ]
 then
     CFG_LD_PATH_VAR=PATH
-    CFG_OLD_LD_PATH_VAR=$PATH
+    CFG_OLD_LD_PATH_VAR="$PATH"
 elif [ "$CFG_OSTYPE" = "apple-darwin" ]
 then
     CFG_LD_PATH_VAR=DYLD_LIBRARY_PATH
-    CFG_OLD_LD_PATH_VAR=$DYLD_LIBRARY_PATH
+    CFG_OLD_LD_PATH_VAR="$DYLD_LIBRARY_PATH"
 else
     CFG_LD_PATH_VAR=LD_LIBRARY_PATH
-    CFG_OLD_LD_PATH_VAR=$LD_LIBRARY_PATH
+    CFG_OLD_LD_PATH_VAR="$LD_LIBRARY_PATH"
 fi
 
 flag uninstall "only uninstall from the installation prefix"
