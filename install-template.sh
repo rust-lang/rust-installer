@@ -716,9 +716,7 @@ fi
 # Sanity check: can we run the installed binaries?
 #
 # As with the verification above, make sure the right LD_LIBRARY_PATH-equivalent
-# is in place. Try first without this variable, and if that fails try again with
-# the variable. If the second time tries, print a hopefully helpful message to
-# add something to the appropriate environment variable.
+# is in place.
 if [ -z "${CFG_DISABLE_VERIFY}" ]
 then
     export $CFG_LD_PATH_VAR="${CFG_DESTDIR}${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
