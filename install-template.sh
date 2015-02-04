@@ -20,11 +20,11 @@ step_msg() {
 }
 
 warn() {
-    echo "install: WARNING: $1"
+    echo "install: WARNING: $1" >&2
 }
 
 err() {
-    echo "install: error: $1"
+    echo "install: error: $1" >&2
     exit 1
 }
 
