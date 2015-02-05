@@ -9,8 +9,10 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+set -u
+
 msg() {
-    echo "gen-installer: $1"
+    echo "install: ${1-}"
 }
 
 step_msg() {
@@ -20,11 +22,11 @@ step_msg() {
 }
 
 warn() {
-    echo "gen-installer: WARNING: $1"
+    echo "install: WARNING: $1" >&2
 }
 
 err() {
-    echo "gen-installer: error: $1"
+    echo "install: error: $1" >&2
     exit 1
 }
 
@@ -43,141 +45,142 @@ need_cmd() {
 }
 
 putvar() {
-    local T
-    eval T=\$$1
-    eval TLEN=\${#$1}
-    if [ $TLEN -gt 35 ]
+    local t
+    local tlen
+    eval t=\$$1
+    eval tlen=\${#$1}
+    if [ $tlen -gt 35 ]
     then
-        printf "gen-installer: %-20s := %.35s ...\n" $1 "$T"
+        printf "install: %-20s := %.35s ...\n" $1 "$t"
     else
-        printf "gen-installer: %-20s := %s %s\n" $1 "$T" "$2"
+        printf "install: %-20s := %s %s\n" $1 "$t"
     fi
 }
 
 valopt() {
     VAL_OPTIONS="$VAL_OPTIONS $1"
 
-    local OP=$1
-    local DEFAULT=$2
+    local op=$1
+    local default=$2
     shift
     shift
-    local DOC="$*"
+    local doc="$*"
     if [ $HELP -eq 0 ]
     then
-        local UOP=$(echo $OP | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
-        local V="CFG_${UOP}"
-        eval $V="$DEFAULT"
+        local uop=$(echo $op | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
+        local v="CFG_${uop}"
+        eval $v="$default"
         for arg in $CFG_ARGS
         do
-            if echo "$arg" | grep -q -- "--$OP="
+            if echo "$arg" | grep -q -- "--$op="
             then
-                val=$(echo "$arg" | cut -f2 -d=)
-                eval $V=$val
+                local val=$(echo "$arg" | cut -f2 -d=)
+                eval $v=$val
             fi
         done
-        putvar $V
+        putvar $v
     else
-        if [ -z "$DEFAULT" ]
+        if [ -z "$default" ]
         then
-            DEFAULT="<none>"
+            default="<none>"
         fi
-        OP="${OP}=[${DEFAULT}]"
-        printf "    --%-30s %s\n" "$OP" "$DOC"
+        op="${default}=[${default}]"
+        printf "    --%-30s %s\n" "$op" "$doc"
     fi
 }
 
 opt() {
     BOOL_OPTIONS="$BOOL_OPTIONS $1"
 
-    local OP=$1
-    local DEFAULT=$2
+    local op=$1
+    local default=$2
     shift
     shift
-    local DOC="$*"
-    local FLAG=""
+    local doc="$*"
+    local flag=""
 
-    if [ $DEFAULT -eq 0 ]
+    if [ $default -eq 0 ]
     then
-        FLAG="enable"
+        flag="enable"
     else
-        FLAG="disable"
-        DOC="don't $DOC"
+        flag="disable"
+        doc="don't $doc"
     fi
 
     if [ $HELP -eq 0 ]
     then
         for arg in $CFG_ARGS
         do
-            if [ "$arg" = "--${FLAG}-${OP}" ]
+            if [ "$arg" = "--${flag}-${op}" ]
             then
-                OP=$(echo $OP | tr 'a-z-' 'A-Z_')
-                FLAG=$(echo $FLAG | tr 'a-z' 'A-Z')
-                local V="CFG_${FLAG}_${OP}"
-                eval $V=1
-                putvar $V
+                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                flag=$(echo $flag | tr 'a-z' 'A-Z')
+                local v="CFG_${flag}_${op}"
+                eval $v=1
+                putvar $v
             fi
         done
     else
         if [ ! -z "$META" ]
         then
-            OP="$OP=<$META>"
+            op="$op=<$META>"
         fi
-        printf "    --%-30s %s\n" "$FLAG-$OP" "$DOC"
+        printf "    --%-30s %s\n" "$flag-$op" "$doc"
      fi
 }
 
 flag() {
     BOOL_OPTIONS="$BOOL_OPTIONS $1"
 
-    local OP=$1
+    local op=$1
     shift
-    local DOC="$*"
+    local doc="$*"
 
     if [ $HELP -eq 0 ]
     then
         for arg in $CFG_ARGS
         do
-            if [ "$arg" = "--${OP}" ]
+            if [ "$arg" = "--${op}" ]
             then
-                OP=$(echo $OP | tr 'a-z-' 'A-Z_')
-                local V="CFG_${OP}"
-                eval $V=1
-                putvar $V
+                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                local v="CFG_${op}"
+                eval $v=1
+                putvar $v
             fi
         done
     else
         if [ ! -z "$META" ]
         then
-            OP="$OP=<$META>"
+            op="$op=<$META>"
         fi
-        printf "    --%-30s %s\n" "$OP" "$DOC"
+        printf "    --%-30s %s\n" "$op" "$doc"
      fi
 }
 
 validate_opt () {
     for arg in $CFG_ARGS
     do
-        isArgValid=0
+        local is_arg_valid=0
         for option in $BOOL_OPTIONS
         do
             if test --disable-$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
             if test --enable-$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
             if test --$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
         done
         for option in $VAL_OPTIONS
         do
             if echo "$arg" | grep -q -- "--$option="
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
         done
         if [ "$arg" = "--help" ]
@@ -187,7 +190,7 @@ validate_opt () {
             echo "check the Wiki or join our IRC channel"
             break
         else
-            if test $isArgValid -eq 0
+            if test $is_arg_valid -eq 0
             then
                 err "Option '$arg' is not recognized"
             fi
@@ -206,8 +209,6 @@ need_cmd echo
 need_cmd tr
 need_cmd awk
 
-CFG_SRC_DIR="$(cd $(dirname $0) && pwd)"
-CFG_SELF="$0"
 CFG_ARGS="$@"
 
 HELP=0
@@ -216,13 +217,17 @@ then
     HELP=1
     shift
     echo
-    echo "Usage: $CFG_SELF [options]"
+    echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo
 else
-    step_msg "processing $CFG_SELF args"
+    step_msg "processing arguments"
 fi
+
+OPTIONS=""
+BOOL_OPTIONS=""
+VAL_OPTIONS=""
 
 valopt product-name "Product" "The name of the product, for display"
 valopt component-name "component" "The name of the component, distinct from other installed components"
@@ -243,10 +248,12 @@ then
     exit 0
 fi
 
-step_msg "validating $CFG_SELF args"
+step_msg "validating arguments"
 validate_opt
 
-RUST_INSTALLER_VERSION=`cat "$CFG_SRC_DIR/rust-installer-version"`
+src_dir="$(cd $(dirname "$0") && pwd)"
+
+rust_installer_version=`cat "$src_dir/rust-installer-version"`
 
 if [ ! -d "$CFG_IMAGE_DIR" ]
 then
@@ -266,52 +273,52 @@ cp -r "$CFG_IMAGE_DIR/"* "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
 need_ok "couldn't copy source image"
 
 # Create the manifest
-MANIFEST=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
+manifest=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
 
 # Remove non-installed files from manifest
-NON_INSTALLED_PREFIXES=`echo "$CFG_NON_INSTALLED_PREFIXES" | tr "," " "`
-for prefix in $NON_INSTALLED_PREFIXES; do
-    # This adds the escapes to '/' in paths to make them '\/' so sed doesn't puke.
-    # I figured this out by adding backslashes until it worked. Holy shit.
+non_installed_prefixes=`echo "$CFG_NON_INSTALLED_PREFIXES" | tr "," " "`
+for prefix in $non_installed_prefixes; do
+    # this adds the escapes to '/' in paths to make them '\/' so sed doesn't puke.
+    # i figured this out by adding backslashes until it worked. holy shit.
     prefix=`echo "$prefix" | sed s/\\\//\\\\\\\\\\\//g`
-    MANIFEST=`echo "$MANIFEST" | sed /^$prefix/d`
+    manifest=`echo "$manifest" | sed /^$prefix/d`
 done
 
 # Remove files in bulk dirs
-BULK_DIRS=`echo "$CFG_BULK_DIRS" | tr "," " "`
-for bulk_dir in $BULK_DIRS; do
+bulk_dirs=`echo "$CFG_BULK_DIRS" | tr "," " "`
+for bulk_dir in $bulk_dirs; do
     bulk_dir=`echo "$bulk_dir" | sed s/\\\//\\\\\\\\\\\//g`
-    MANIFEST=`echo "$MANIFEST" | sed /^$bulk_dir/d`
+    manifest=`echo "$manifest" | sed /^$bulk_dir/d`
 done
 
 # Add 'file:' installation directives.
 # The -n prevents adding a blank file: if the manifest is empty
-MANIFEST=`/bin/echo -n "$MANIFEST" | sed s/^/file:/`
+manifest=`/bin/echo -n "$manifest" | sed s/^/file:/`
 
 # Add 'dir:' directives
-for bulk_dir in $BULK_DIRS; do
-    MANIFEST=`echo "$MANIFEST" && echo "dir:$bulk_dir"`
+for bulk_dir in $bulk_dirs; do
+    manifest=`echo "$manifest" && echo "dir:$bulk_dir"`
 done
 
 # The above step may have left a leading empty line if there were only
 # bulk dirs. Remove it.
-MANIFEST=`echo "$MANIFEST" | sed /^$/d`
+manifest=`echo "$manifest" | sed /^$/d`
 
-MANIFEST_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$CFG_COMPONENT_NAME.in"
-COMPONENT_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
-VERSION_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
+manifest_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$CFG_COMPONENT_NAME.in"
+component_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
+version_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
 
 # Write the manifest
-echo "$MANIFEST" > "$MANIFEST_FILE"
+echo "$manifest" > "$manifest_file"
 
 # Write the component name
-echo "$CFG_COMPONENT_NAME" > "$COMPONENT_FILE"
+echo "$CFG_COMPONENT_NAME" > "$component_file"
 
 # Write the installer version (only used by combine-installers.sh)
-echo "$RUST_INSTALLER_VERSION" > "$VERSION_FILE"
+echo "$rust_installer_version" > "$version_file"
 
 # Generate the install script
-"$CFG_SRC_DIR/gen-install-script.sh" \
+"$src_dir/gen-install-script.sh" \
     --product-name="$CFG_PRODUCT_NAME" \
     --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
