@@ -208,7 +208,7 @@ need_cmd mkdir
 need_cmd echo
 need_cmd tr
 
-CFG_SRC_DIR="$(cd $(dirname $0) && pwd)"
+CFG_SRC_DIR="$(cd $(dirname "$0") && pwd)"
 CFG_SELF="$0"
 CFG_ARGS="$@"
 
@@ -287,7 +287,7 @@ for input_tarball in $INPUT_TARBALLS; do
 	    FILE=`echo $directive | cut -f2 -d:`
 
 	    NEW_FILE_PATH="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$FILE"
-	    mkdir -p "$(dirname $NEW_FILE_PATH)"
+	    mkdir -p "$(dirname "$NEW_FILE_PATH")"
 
 	    case "$COMMAND" in
 		file | dir)

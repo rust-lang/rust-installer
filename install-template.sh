@@ -441,8 +441,8 @@ need_ok "failed to remove install probe"
 # Sanity check: don't install to the directory containing the installer.
 # That would surely cause chaos.
 msg "verifying destination is not the same as source"
-INSTALLER_DIR="$(cd $(dirname $0) && pwd)"
-PREFIX_DIR="$(cd $dest_prefix && pwd)"
+INSTALLER_DIR="$(cd $(dirname "$0") && pwd)"
+PREFIX_DIR="$(cd "$dest_prefix" && pwd)"
 if [ "${INSTALLER_DIR}" = "${PREFIX_DIR}" ]
 then
     err "can't install to same directory as installer"
@@ -688,7 +688,7 @@ for component in $COMPONENTS; do
 	fi
 
 	# Make sure there's a directory for it
-	umask 022 && mkdir -p "$(dirname ${FILE_INSTALL_PATH})"
+	umask 022 && mkdir -p "$(dirname "${FILE_INSTALL_PATH}")"
 	need_ok "directory creation failed"
 
 	# Make the path absolute so we can uninstall it later without

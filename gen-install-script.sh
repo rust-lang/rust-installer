@@ -205,7 +205,7 @@ need_cmd sed
 need_cmd chmod
 need_cmd cat
 
-CFG_SRC_DIR="$(cd $(dirname $0) && pwd)"
+CFG_SRC_DIR="$(cd $(dirname "$0") && pwd)"
 CFG_SELF="$0"
 CFG_ARGS="$@"
 
