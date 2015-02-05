@@ -461,6 +461,9 @@ fi
 absolutify "${CFG_LIBDIR}"
 ABS_LIBDIR="${ABSOLUTIFIED}"
 
+# We're going to start by uninstalling existing components. This
+UNINSTALLED_SOMETHING=false
+
 # Replace commas in legacy manifest list with spaces
 LEGACY_MANIFEST_DIRS=`echo "$TEMPLATE_LEGACY_MANIFEST_DIRS" | sed "s/,/ /g"`
 
@@ -503,7 +506,7 @@ for md in $LEGACY_MANIFEST_DIRS; do
             warn "failed to remove $md"
 	fi
 
-	UNINSTALLED_SOMETHING=1
+	UNINSTALLED_SOMETHING=true
     fi
 done
 
@@ -517,7 +520,6 @@ if [ -f "$ABS_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version" ]; then
 fi
 
 # If there's something installed, then uninstall
-UNINSTALLED_SOMETHING=false
 if [ -n "$INSTALLED_VERSION" ]; then
     # Check the version of the installed installer
     case "$INSTALLED_VERSION" in
