@@ -9,8 +9,10 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+set -u
+
 msg() {
-    echo "gen-install-script: $1"
+    echo "install: ${1-}"
 }
 
 step_msg() {
@@ -20,11 +22,11 @@ step_msg() {
 }
 
 warn() {
-    echo "gen-install-script: WARNING: $1"
+    echo "install: WARNING: $1" >&2
 }
 
 err() {
-    echo "gen-install-script: error: $1"
+    echo "install: error: $1" >&2
     exit 1
 }
 
@@ -43,141 +45,142 @@ need_cmd() {
 }
 
 putvar() {
-    local T
-    eval T=\$$1
-    eval TLEN=\${#$1}
-    if [ $TLEN -gt 35 ]
+    local t
+    local tlen
+    eval t=\$$1
+    eval tlen=\${#$1}
+    if [ $tlen -gt 35 ]
     then
-        printf "gen-install-script: %-20s := %.35s ...\n" $1 "$T"
+        printf "install: %-20s := %.35s ...\n" $1 "$t"
     else
-        printf "gen-install-script: %-20s := %s %s\n" $1 "$T" "$2"
+        printf "install: %-20s := %s %s\n" $1 "$t"
     fi
 }
 
 valopt() {
     VAL_OPTIONS="$VAL_OPTIONS $1"
 
-    local OP=$1
-    local DEFAULT=$2
+    local op=$1
+    local default=$2
     shift
     shift
-    local DOC="$*"
+    local doc="$*"
     if [ $HELP -eq 0 ]
     then
-        local UOP=$(echo $OP | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
-        local V="CFG_${UOP}"
-        eval $V="$DEFAULT"
+        local uop=$(echo $op | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
+        local v="CFG_${uop}"
+        eval $v="$default"
         for arg in $CFG_ARGS
         do
-            if echo "$arg" | grep -q -- "--$OP="
+            if echo "$arg" | grep -q -- "--$op="
             then
-                val=$(echo "$arg" | cut -f2 -d=)
-                eval $V=$val
+                local val=$(echo "$arg" | cut -f2 -d=)
+                eval $v=$val
             fi
         done
-        putvar $V
+        putvar $v
     else
-        if [ -z "$DEFAULT" ]
+        if [ -z "$default" ]
         then
-            DEFAULT="<none>"
+            default="<none>"
         fi
-        OP="${OP}=[${DEFAULT}]"
-        printf "    --%-30s %s\n" "$OP" "$DOC"
+        op="${default}=[${default}]"
+        printf "    --%-30s %s\n" "$op" "$doc"
     fi
 }
 
 opt() {
     BOOL_OPTIONS="$BOOL_OPTIONS $1"
 
-    local OP=$1
-    local DEFAULT=$2
+    local op=$1
+    local default=$2
     shift
     shift
-    local DOC="$*"
-    local FLAG=""
+    local doc="$*"
+    local flag=""
 
-    if [ $DEFAULT -eq 0 ]
+    if [ $default -eq 0 ]
     then
-        FLAG="enable"
+        flag="enable"
     else
-        FLAG="disable"
-        DOC="don't $DOC"
+        flag="disable"
+        doc="don't $doc"
     fi
 
     if [ $HELP -eq 0 ]
     then
         for arg in $CFG_ARGS
         do
-            if [ "$arg" = "--${FLAG}-${OP}" ]
+            if [ "$arg" = "--${flag}-${op}" ]
             then
-                OP=$(echo $OP | tr 'a-z-' 'A-Z_')
-                FLAG=$(echo $FLAG | tr 'a-z' 'A-Z')
-                local V="CFG_${FLAG}_${OP}"
-                eval $V=1
-                putvar $V
+                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                flag=$(echo $flag | tr 'a-z' 'A-Z')
+                local v="CFG_${flag}_${op}"
+                eval $v=1
+                putvar $v
             fi
         done
     else
         if [ ! -z "$META" ]
         then
-            OP="$OP=<$META>"
+            op="$op=<$META>"
         fi
-        printf "    --%-30s %s\n" "$FLAG-$OP" "$DOC"
+        printf "    --%-30s %s\n" "$flag-$op" "$doc"
      fi
 }
 
 flag() {
     BOOL_OPTIONS="$BOOL_OPTIONS $1"
 
-    local OP=$1
+    local op=$1
     shift
-    local DOC="$*"
+    local doc="$*"
 
     if [ $HELP -eq 0 ]
     then
         for arg in $CFG_ARGS
         do
-            if [ "$arg" = "--${OP}" ]
+            if [ "$arg" = "--${op}" ]
             then
-                OP=$(echo $OP | tr 'a-z-' 'A-Z_')
-                local V="CFG_${OP}"
-                eval $V=1
-                putvar $V
+                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                local v="CFG_${op}"
+                eval $v=1
+                putvar $v
             fi
         done
     else
         if [ ! -z "$META" ]
         then
-            OP="$OP=<$META>"
+            op="$op=<$META>"
         fi
-        printf "    --%-30s %s\n" "$OP" "$DOC"
+        printf "    --%-30s %s\n" "$op" "$doc"
      fi
 }
 
 validate_opt () {
     for arg in $CFG_ARGS
     do
-        isArgValid=0
+        local is_arg_valid=0
         for option in $BOOL_OPTIONS
         do
             if test --disable-$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
             if test --enable-$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
             if test --$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
         done
         for option in $VAL_OPTIONS
         do
             if echo "$arg" | grep -q -- "--$option="
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
         done
         if [ "$arg" = "--help" ]
@@ -187,7 +190,7 @@ validate_opt () {
             echo "check the Wiki or join our IRC channel"
             break
         else
-            if test $isArgValid -eq 0
+            if test $is_arg_valid -eq 0
             then
                 err "Option '$arg' is not recognized"
             fi
@@ -202,8 +205,6 @@ need_cmd sed
 need_cmd chmod
 need_cmd cat
 
-CFG_SRC_DIR="$(cd $(dirname $0) && pwd)"
-CFG_SELF="$0"
 CFG_ARGS="$@"
 
 HELP=0
@@ -212,19 +213,23 @@ then
     HELP=1
     shift
     echo
-    echo "Usage: $CFG_SELF [options]"
+    echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo
 else
-    step_msg "processing $CFG_SELF args"
+    step_msg "processing arguments"
 fi
+
+OPTIONS=""
+BOOL_OPTIONS=""
+VAL_OPTIONS=""
 
 valopt product-name "Product" "The name of the product, for display"
 valopt verify-bin "" "The command to run with --version to verify the install works"
-valopt rel-manifest-dir "${CFG_VERIFY_BIN}lib" "The directory under lib/ where the manifest lives"
+valopt rel-manifest-dir "manifestlib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
-valopt output-script "${CFG_SRC_DIR}/install.sh" "The name of the output script"
+valopt output-script "install.sh" "The name of the output script"
 valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
 
 if [ $HELP -eq 1 ]
@@ -233,29 +238,31 @@ then
     exit 0
 fi
 
-step_msg "validating $CFG_SELF args"
+step_msg "validating arguments"
 validate_opt
 
-RUST_INSTALLER_VERSION=`cat "$CFG_SRC_DIR/rust-installer-version"`
+src_dir="$(cd $(dirname "$0") && pwd)"
+
+rust_installer_version=`cat "$src_dir/rust-installer-version"`
 
 # Replace dashes in the success message with spaces (our arg handling botches spaces)
-CFG_PRODUCT_NAME=`echo "$CFG_PRODUCT_NAME" | sed "s/-/ /g"`
+product_name=`echo "$CFG_PRODUCT_NAME" | sed "s/-/ /g"`
 
 # Replace dashes in the success message with spaces (our arg handling botches spaces)
-CFG_SUCCESS_MESSAGE=`echo "$CFG_SUCCESS_MESSAGE" | sed "s/-/ /g"`
+success_message=`echo "$CFG_SUCCESS_MESSAGE" | sed "s/-/ /g"`
 
-SCRIPT_TEMPLATE=`cat "${CFG_SRC_DIR}/install-template.sh"`
+script_template=`cat "$src_dir/install-template.sh"`
 
 # Using /bin/echo because under sh emulation dash *seems* to escape \n, which screws up the template
-SCRIPT=`/bin/echo "${SCRIPT_TEMPLATE}"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/\"${CFG_PRODUCT_NAME}\"/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_VERIFY_BIN%%/${CFG_VERIFY_BIN}/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/${CFG_REL_MANIFEST_DIR}/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"${CFG_SUCCESS_MESSAGE}\"/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"${CFG_LEGACY_MANIFEST_DIRS}\"/"`
-SCRIPT=`/bin/echo "${SCRIPT}" | sed "s/%%TEMPLATE_RUST_INSTALLER_VERSION%%/\"$RUST_INSTALLER_VERSION\"/"`
+script=`/bin/echo "$script_template"`
+script=`/bin/echo "$script" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/\"$product_name\"/"`
+script=`/bin/echo "$script" | sed "s/%%TEMPLATE_VERIFY_BIN%%/$CFG_VERIFY_BIN/"`
+script=`/bin/echo "$script" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/$CFG_REL_MANIFEST_DIR/"`
+script=`/bin/echo "$script" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"$success_message\"/"`
+script=`/bin/echo "$script" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"$CFG_LEGACY_MANIFEST_DIRS\"/"`
+script=`/bin/echo "$script" | sed "s/%%TEMPLATE_RUST_INSTALLER_VERSION%%/\"$rust_installer_version\"/"`
 
-/bin/echo "${SCRIPT}" > "${CFG_OUTPUT_SCRIPT}"
+/bin/echo "$script" > "$CFG_OUTPUT_SCRIPT"
 need_ok "couldn't write script"
-chmod u+x "${CFG_OUTPUT_SCRIPT}"
+chmod u+x "$CFG_OUTPUT_SCRIPT"
 need_ok "couldn't chmod script"
