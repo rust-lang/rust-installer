@@ -754,6 +754,17 @@ destdir() {
 }
 runtest destdir
 
+destdir_no_trailing_slash() {
+    try sh "$S/gen-installer.sh" \
+	--verify-bin=program \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --destdir="$PREFIX_DIR" --prefix=prefix
+    try test -e "$PREFIX_DIR/prefix/bin/program"
+}
+runtest destdir_no_trailing_slash
+
 
 # TODO: DESTDIR
 # TODO: mandir/libdir/bindir, etc.

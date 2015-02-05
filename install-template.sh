@@ -239,12 +239,54 @@ else
     step_msg "processing $CFG_SELF args"
 fi
 
-# Check for mingw or cygwin in order to special case $CFG_LIBDIR_RELATIVE.
-# This logic is duplicated from configure in order to get the correct libdir
-# for Windows installs.
-CFG_OSTYPE=$(uname -s)
+OPTIONS=""
+BOOL_OPTIONS=""
+VAL_OPTIONS=""
 
-case $CFG_OSTYPE in
+flag uninstall "only uninstall from the installation prefix"
+valopt destdir "" "set installation root"
+opt verify 1 "verify that the installed binaries run correctly"
+valopt prefix "/usr/local" "set installation prefix"
+# NB This isn't quite the same definition as in `configure`.
+# just using 'lib' instead of configure's CFG_LIBDIR_RELATIVE
+valopt libdir "${CFG_DESTDIR}/${CFG_PREFIX}/lib" "install libraries"
+valopt mandir "${CFG_DESTDIR}/${CFG_PREFIX}/share/man" "install man pages in PATH"
+opt ldconfig 1 "run ldconfig after installation (Linux only)"
+
+if [ $HELP -eq 1 ]
+then
+    echo
+    exit 0
+fi
+
+step_msg "validating $CFG_SELF args"
+validate_opt
+
+# Template configuration.
+# These names surrounded by '%%` are replaced by sed when generating install.sh
+# FIXME: Might want to consider loading this from a file and not generating install.sh
+
+# Rust or Cargo
+TEMPLATE_PRODUCT_NAME=%%TEMPLATE_PRODUCT_NAME%%
+# rustc or cargo
+TEMPLATE_VERIFY_BIN=%%TEMPLATE_VERIFY_BIN%%
+# rustlib or cargo
+TEMPLATE_REL_MANIFEST_DIR=%%TEMPLATE_REL_MANIFEST_DIR%%
+# 'Rust is ready to roll.' or 'Cargo is cool to cruise.'
+TEMPLATE_SUCCESS_MESSAGE=%%TEMPLATE_SUCCESS_MESSAGE%%
+# Locations to look for directories containing legacy, pre-versioned manifests
+TEMPLATE_LEGACY_MANIFEST_DIRS=%%TEMPLATE_LEGACY_MANIFEST_DIRS%%
+# The installer version
+TEMPLATE_RUST_INSTALLER_VERSION=%%TEMPLATE_RUST_INSTALLER_VERSION%%
+
+# OK, let's get installing ...
+
+# This is where we are installing to
+dest_prefix="${CFG_DESTDIR}/${CFG_PREFIX}"
+
+# Figure out what platform we're on for dealing with dynamic linker stuff
+uname_value=$(uname -s)
+case $uname_value in
 
     Linux)
         CFG_OSTYPE=unknown-linux-gnu
@@ -400,7 +442,7 @@ need_ok "failed to remove install probe"
 # That would surely cause chaos.
 msg "verifying destination is not the same as source"
 INSTALLER_DIR="$(cd $(dirname $0) && pwd)"
-PREFIX_DIR="$(cd ${CFG_DESTDIR}${CFG_PREFIX} && pwd)"
+PREFIX_DIR="$(cd $dest_prefix && pwd)"
 if [ "${INSTALLER_DIR}" = "${PREFIX_DIR}" ]
 then
     err "can't install to same directory as installer"
@@ -491,7 +533,7 @@ if [ -n "$INSTALLED_VERSION" ]; then
 
 	# TODO: If this is an unknown (future) version then bail.
 	*)
-	    echo "The copy of $TEMPLATE_PRODUCT_NAME at ${CFG_DESTDIR}${CFG_PREFIX} was installed using an"
+	    echo "The copy of $TEMPLATE_PRODUCT_NAME at $dest_prefix was installed using an"
 	    echo "unknown version ($INSTALLED_VERSION) of rust-installer."
 	    echo "Uninstall it first with the installer used for the original installation"
 	    echo "before continuing."
@@ -629,7 +671,7 @@ for component in $COMPONENTS; do
 	if [ ! -n "$FILE" ]; then err "malformed installation directive"; fi
 
 	# Decide the destination of the file
-	FILE_INSTALL_PATH="${CFG_DESTDIR}${CFG_PREFIX}/$FILE"
+	FILE_INSTALL_PATH="$dest_prefix/$FILE"
 
 	if echo "$FILE" | grep "^lib/" > /dev/null
 	then
@@ -725,8 +767,8 @@ fi
 # is in place.
 if [ -z "${CFG_DISABLE_VERIFY-}" ]
 then
-    export $CFG_LD_PATH_VAR="${CFG_DESTDIR}${CFG_PREFIX}/lib:$CFG_OLD_LD_PATH_VAR"
-    "${CFG_DESTDIR}${CFG_PREFIX}/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
+    export $CFG_LD_PATH_VAR="$dest_prefix/lib:$CFG_OLD_LD_PATH_VAR"
+    "$dest_prefix/bin/${TEMPLATE_VERIFY_BIN}" --version > /dev/null
     if [ $? -ne 0 ]
     then
         ERR="can't execute installed binaries. "
@@ -736,7 +778,7 @@ then
         err "${ERR}"
     else
         echo
-        echo "    Note: please ensure '${CFG_DESTDIR}${CFG_PREFIX}/lib' is added to ${CFG_LD_PATH_VAR}"
+        echo "    Note: please ensure '$dest_prefix/lib' is added to ${CFG_LD_PATH_VAR}"
     fi
 fi
 
