@@ -12,7 +12,7 @@
 set -u
 
 msg() {
-    echo "install: ${1-}"
+    echo "gen-installer: ${1-}"
 }
 
 step_msg() {
@@ -22,11 +22,11 @@ step_msg() {
 }
 
 warn() {
-    echo "install: WARNING: $1" >&2
+    echo "gen-installer: WARNING: $1" >&2
 }
 
 err() {
-    echo "install: error: $1" >&2
+    echo "gen-installer: error: $1" >&2
     exit 1
 }
 
@@ -51,9 +51,9 @@ putvar() {
     eval tlen=\${#$1}
     if [ $tlen -gt 35 ]
     then
-        printf "install: %-20s := %.35s ...\n" $1 "$t"
+        printf "gen-installer: %-20s := %.35s ...\n" $1 "$t"
     else
-        printf "install: %-20s := %s %s\n" $1 "$t"
+        printf "gen-installer: %-20s := %s %s\n" $1 "$t"
     fi
 }
 
