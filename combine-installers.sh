@@ -10,6 +10,7 @@
 # except according to those terms.
 
 set -u
+
 msg() {
     echo "install: ${1-}"
 }
@@ -44,141 +45,142 @@ need_cmd() {
 }
 
 putvar() {
-    local T
-    eval T=\$$1
-    eval TLEN=\${#$1}
-    if [ $TLEN -gt 35 ]
+    local t
+    local tlen
+    eval t=\$$1
+    eval tlen=\${#$1}
+    if [ $tlen -gt 35 ]
     then
-        printf "install: %-20s := %.35s ...\n" $1 "$T"
+        printf "install: %-20s := %.35s ...\n" $1 "$t"
     else
-        printf "install: %-20s := %s %s\n" $1 "$T"
+        printf "install: %-20s := %s %s\n" $1 "$t"
     fi
 }
 
 valopt() {
     VAL_OPTIONS="$VAL_OPTIONS $1"
 
-    local OP=$1
-    local DEFAULT=$2
+    local op=$1
+    local default=$2
     shift
     shift
-    local DOC="$*"
+    local doc="$*"
     if [ $HELP -eq 0 ]
     then
-        local UOP=$(echo $OP | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
-        local V="CFG_${UOP}"
-        eval $V="$DEFAULT"
+        local uop=$(echo $op | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
+        local v="CFG_${uop}"
+        eval $v="$default"
         for arg in $CFG_ARGS
         do
-            if echo "$arg" | grep -q -- "--$OP="
+            if echo "$arg" | grep -q -- "--$op="
             then
-                val=$(echo "$arg" | cut -f2 -d=)
-                eval $V=$val
+                local val=$(echo "$arg" | cut -f2 -d=)
+                eval $v=$val
             fi
         done
-        putvar $V
+        putvar $v
     else
-        if [ -z "$DEFAULT" ]
+        if [ -z "$default" ]
         then
-            DEFAULT="<none>"
+            default="<none>"
         fi
-        OP="${OP}=[${DEFAULT}]"
-        printf "    --%-30s %s\n" "$OP" "$DOC"
+        op="${default}=[${default}]"
+        printf "    --%-30s %s\n" "$op" "$doc"
     fi
 }
 
 opt() {
     BOOL_OPTIONS="$BOOL_OPTIONS $1"
 
-    local OP=$1
-    local DEFAULT=$2
+    local op=$1
+    local default=$2
     shift
     shift
-    local DOC="$*"
-    local FLAG=""
+    local doc="$*"
+    local flag=""
 
-    if [ $DEFAULT -eq 0 ]
+    if [ $default -eq 0 ]
     then
-        FLAG="enable"
+        flag="enable"
     else
-        FLAG="disable"
-        DOC="don't $DOC"
+        flag="disable"
+        doc="don't $doc"
     fi
 
     if [ $HELP -eq 0 ]
     then
         for arg in $CFG_ARGS
         do
-            if [ "$arg" = "--${FLAG}-${OP}" ]
+            if [ "$arg" = "--${flag}-${op}" ]
             then
-                OP=$(echo $OP | tr 'a-z-' 'A-Z_')
-                FLAG=$(echo $FLAG | tr 'a-z' 'A-Z')
-                local V="CFG_${FLAG}_${OP}"
-                eval $V=1
-                putvar $V
+                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                flag=$(echo $flag | tr 'a-z' 'A-Z')
+                local v="CFG_${flag}_${op}"
+                eval $v=1
+                putvar $v
             fi
         done
     else
         if [ ! -z "$META" ]
         then
-            OP="$OP=<$META>"
+            op="$op=<$META>"
         fi
-        printf "    --%-30s %s\n" "$FLAG-$OP" "$DOC"
+        printf "    --%-30s %s\n" "$flag-$op" "$doc"
      fi
 }
 
 flag() {
     BOOL_OPTIONS="$BOOL_OPTIONS $1"
 
-    local OP=$1
+    local op=$1
     shift
-    local DOC="$*"
+    local doc="$*"
 
     if [ $HELP -eq 0 ]
     then
         for arg in $CFG_ARGS
         do
-            if [ "$arg" = "--${OP}" ]
+            if [ "$arg" = "--${op}" ]
             then
-                OP=$(echo $OP | tr 'a-z-' 'A-Z_')
-                local V="CFG_${OP}"
-                eval $V=1
-                putvar $V
+                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                local v="CFG_${op}"
+                eval $v=1
+                putvar $v
             fi
         done
     else
         if [ ! -z "$META" ]
         then
-            OP="$OP=<$META>"
+            op="$op=<$META>"
         fi
-        printf "    --%-30s %s\n" "$OP" "$DOC"
+        printf "    --%-30s %s\n" "$op" "$doc"
      fi
 }
 
 validate_opt () {
     for arg in $CFG_ARGS
     do
-        isArgValid=0
+        local is_arg_valid=0
         for option in $BOOL_OPTIONS
         do
             if test --disable-$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
             if test --enable-$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
             if test --$option = $arg
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
         done
         for option in $VAL_OPTIONS
         do
             if echo "$arg" | grep -q -- "--$option="
             then
-                isArgValid=1
+                is_arg_valid=1
             fi
         done
         if [ "$arg" = "--help" ]
@@ -188,7 +190,7 @@ validate_opt () {
             echo "check the Wiki or join our IRC channel"
             break
         else
-            if test $isArgValid -eq 0
+            if test $is_arg_valid -eq 0
             then
                 err "Option '$arg' is not recognized"
             fi
