@@ -208,8 +208,6 @@ need_cmd mkdir
 need_cmd echo
 need_cmd tr
 
-CFG_SRC_DIR="$(cd $(dirname "$0") && pwd)"
-CFG_SELF="$0"
 CFG_ARGS="$@"
 
 HELP=0
@@ -218,12 +216,12 @@ then
     HELP=1
     shift
     echo
-    echo "Usage: $CFG_SELF [options]"
+    echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo
 else
-    step_msg "processing $CFG_SELF args"
+    step_msg "processing arguments"
 fi
 
 OPTIONS=""
@@ -247,10 +245,12 @@ then
     exit 0
 fi
 
-step_msg "validating $CFG_SELF args"
+step_msg "validating arguments"
 validate_opt
 
-RUST_INSTALLER_VERSION=`cat "$CFG_SRC_DIR/rust-installer-version"`
+src_dir="$(cd $(dirname "$0") && pwd)"
+
+rust_installer_version=`cat "$src_dir/rust-installer-version"`
 
 # Create the work directory for the new installer
 mkdir -p "$CFG_WORK_DIR"
@@ -262,40 +262,40 @@ need_ok "couldn't delete work package dir"
 mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
 need_ok "couldn't create work package dir"
 
-INPUT_TARBALLS=`echo "$CFG_INPUT_TARBALLS" | sed 's/,/ /g'`
+input_tarballs=`echo "$CFG_INPUT_TARBALLS" | sed 's/,/ /g'`
 
 # Merge each installer into the work directory of the new installer
-for input_tarball in $INPUT_TARBALLS; do
+for input_tarball in $input_tarballs; do
 
     # Extract the input tarballs
     tar xzf $input_tarball -C "$CFG_WORK_DIR"
     need_ok "failed to extract tarball"
 
     # Verify the version number
-    PKG_NAME=`echo "$input_tarball" | sed s/\.tar\.gz//g`
-    PKG_NAME=`basename $PKG_NAME`
-    VERSION=`cat "$CFG_WORK_DIR/$PKG_NAME/rust-installer-version"`
-    if [ "$RUST_INSTALLER_VERSION" != "$VERSION" ]; then
+    pkg_name=`echo "$input_tarball" | sed s/\.tar\.gz//g`
+    pkg_name=`basename $pkg_name`
+    version=`cat "$CFG_WORK_DIR/$pkg_name/rust-installer-version"`
+    if [ "$rust_installer_version" != "$version" ]; then
 	err "incorrect installer version in $input_tarball"
     fi
 
     # Interpret the manifest to copy the contents to the new installer
-    COMPONENTS=`cat "$CFG_WORK_DIR/$PKG_NAME/components"`
-    for component in $COMPONENTS; do
+    components=`cat "$CFG_WORK_DIR/$pkg_name/components"`
+    for component in $components; do
 	while read directive; do
-	    COMMAND=`echo $directive | cut -f1 -d:`
-	    FILE=`echo $directive | cut -f2 -d:`
+	    command=`echo $directive | cut -f1 -d:`
+	    file=`echo $directive | cut -f2 -d:`
 
-	    NEW_FILE_PATH="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$FILE"
-	    mkdir -p "$(dirname "$NEW_FILE_PATH")"
+	    new_file_path="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$file"
+	    mkdir -p "$(dirname "$new_file_path")"
 
-	    case "$COMMAND" in
+	    case "$command" in
 		file | dir)
-		    if [ -e "$NEW_FILE_PATH" ]; then
-			err "file $NEW_FILE_PATH already exists"
+		    if [ -e "$new_file_path" ]; then
+			err "file $new_file_path already exists"
 		    fi
-		    cp -R "$CFG_WORK_DIR/$PKG_NAME/$FILE" "$NEW_FILE_PATH"
-		    need_ok "failed to copy file $FILE"
+		    cp -R "$CFG_WORK_DIR/$pkg_name/$file" "$new_file_path"
+		    need_ok "failed to copy file $file"
 		    ;;
 
 		* )
@@ -303,13 +303,13 @@ for input_tarball in $INPUT_TARBALLS; do
 		    ;;
 
 	    esac
-	done < "$CFG_WORK_DIR/$PKG_NAME/manifest-$component.in"
+	done < "$CFG_WORK_DIR/$pkg_name/manifest-$component.in"
 
 	# Copy the manifest
 	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in" ]; then
 	    err "manifest for $component already exists"
 	fi
-	cp "$CFG_WORK_DIR/$PKG_NAME/manifest-$component.in" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in"
+	cp "$CFG_WORK_DIR/$pkg_name/manifest-$component.in" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in"
 	need_ok "failed to copy manifest for $component"
 
 	# Merge the component name
@@ -319,12 +319,12 @@ for input_tarball in $INPUT_TARBALLS; do
 done
 
 # Write the version number
-echo "$RUST_INSTALLER_VERSION" > "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
+echo "$rust_installer_version" > "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
 
 # Copy the overlay
 if [ -n "$CFG_NON_INSTALLED_OVERLAY" ]; then
-    OVERLAY_FILES=`(cd "$CFG_NON_INSTALLED_OVERLAY" && find . -type f)`
-    for f in $OVERLAY_FILES; do
+    overlay_files=`(cd "$CFG_NON_INSTALLED_OVERLAY" && find . -type f)`
+    for f in $overlay_files; do
 	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f" ]; then err "overlay $f exists"; fi
 
 	cp "$CFG_NON_INSTALLED_OVERLAY/$f" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f"
@@ -333,7 +333,7 @@ if [ -n "$CFG_NON_INSTALLED_OVERLAY" ]; then
 fi
 
 # Generate the install script
-"$CFG_SRC_DIR/gen-install-script.sh" \
+"$src_dir/gen-install-script.sh" \
     --product-name="$CFG_PRODUCT_NAME" \
     --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \

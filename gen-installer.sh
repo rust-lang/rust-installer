@@ -209,8 +209,6 @@ need_cmd echo
 need_cmd tr
 need_cmd awk
 
-CFG_SRC_DIR="$(cd $(dirname "$0") && pwd)"
-CFG_SELF="$0"
 CFG_ARGS="$@"
 
 HELP=0
@@ -219,12 +217,12 @@ then
     HELP=1
     shift
     echo
-    echo "Usage: $CFG_SELF [options]"
+    echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo
 else
-    step_msg "processing $CFG_SELF args"
+    step_msg "processing arguments"
 fi
 
 OPTIONS=""
@@ -250,10 +248,12 @@ then
     exit 0
 fi
 
-step_msg "validating $CFG_SELF args"
+step_msg "validating arguments"
 validate_opt
 
-RUST_INSTALLER_VERSION=`cat "$CFG_SRC_DIR/rust-installer-version"`
+src_dir="$(cd $(dirname "$0") && pwd)"
+
+rust_installer_version=`cat "$src_dir/rust-installer-version"`
 
 if [ ! -d "$CFG_IMAGE_DIR" ]
 then
@@ -273,52 +273,52 @@ cp -r "$CFG_IMAGE_DIR/"* "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
 need_ok "couldn't copy source image"
 
 # Create the manifest
-MANIFEST=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
+manifest=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
 
 # Remove non-installed files from manifest
-NON_INSTALLED_PREFIXES=`echo "$CFG_NON_INSTALLED_PREFIXES" | tr "," " "`
-for prefix in $NON_INSTALLED_PREFIXES; do
-    # This adds the escapes to '/' in paths to make them '\/' so sed doesn't puke.
-    # I figured this out by adding backslashes until it worked. Holy shit.
+non_installed_prefixes=`echo "$CFG_NON_INSTALLED_PREFIXES" | tr "," " "`
+for prefix in $non_installed_prefixes; do
+    # this adds the escapes to '/' in paths to make them '\/' so sed doesn't puke.
+    # i figured this out by adding backslashes until it worked. holy shit.
     prefix=`echo "$prefix" | sed s/\\\//\\\\\\\\\\\//g`
-    MANIFEST=`echo "$MANIFEST" | sed /^$prefix/d`
+    manifest=`echo "$manifest" | sed /^$prefix/d`
 done
 
 # Remove files in bulk dirs
-BULK_DIRS=`echo "$CFG_BULK_DIRS" | tr "," " "`
-for bulk_dir in $BULK_DIRS; do
+bulk_dirs=`echo "$CFG_BULK_DIRS" | tr "," " "`
+for bulk_dir in $bulk_dirs; do
     bulk_dir=`echo "$bulk_dir" | sed s/\\\//\\\\\\\\\\\//g`
-    MANIFEST=`echo "$MANIFEST" | sed /^$bulk_dir/d`
+    manifest=`echo "$manifest" | sed /^$bulk_dir/d`
 done
 
 # Add 'file:' installation directives.
 # The -n prevents adding a blank file: if the manifest is empty
-MANIFEST=`/bin/echo -n "$MANIFEST" | sed s/^/file:/`
+manifest=`/bin/echo -n "$manifest" | sed s/^/file:/`
 
 # Add 'dir:' directives
-for bulk_dir in $BULK_DIRS; do
-    MANIFEST=`echo "$MANIFEST" && echo "dir:$bulk_dir"`
+for bulk_dir in $bulk_dirs; do
+    manifest=`echo "$manifest" && echo "dir:$bulk_dir"`
 done
 
 # The above step may have left a leading empty line if there were only
 # bulk dirs. Remove it.
-MANIFEST=`echo "$MANIFEST" | sed /^$/d`
+manifest=`echo "$manifest" | sed /^$/d`
 
-MANIFEST_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$CFG_COMPONENT_NAME.in"
-COMPONENT_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
-VERSION_FILE="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
+manifest_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$CFG_COMPONENT_NAME.in"
+component_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
+version_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
 
 # Write the manifest
-echo "$MANIFEST" > "$MANIFEST_FILE"
+echo "$manifest" > "$manifest_file"
 
 # Write the component name
-echo "$CFG_COMPONENT_NAME" > "$COMPONENT_FILE"
+echo "$CFG_COMPONENT_NAME" > "$component_file"
 
 # Write the installer version (only used by combine-installers.sh)
-echo "$RUST_INSTALLER_VERSION" > "$VERSION_FILE"
+echo "$rust_installer_version" > "$version_file"
 
 # Generate the install script
-"$CFG_SRC_DIR/gen-install-script.sh" \
+"$src_dir/gen-install-script.sh" \
     --product-name="$CFG_PRODUCT_NAME" \
     --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
