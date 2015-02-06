@@ -236,7 +236,7 @@ valopt verify-bin "" "The command to run with --version to verify the install wo
 valopt rel-manifest-dir "${CFG_PACKAGE_NAME}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
 valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
-valopt non-installed-prefixes "" "Path prefixes that should be included but not installed"
+valopt non-installed-overlay "" "Directory containing files that should not be installed"
 valopt bulk-dirs "" "Path prefixes of directories that should be installed/uninstalled in bulk"
 valopt image-dir "./install-image" "The directory containing the installation medium"
 valopt work-dir "./workdir" "The directory to do temporary work"
@@ -275,15 +275,6 @@ need_ok "couldn't copy source image"
 # Create the manifest
 manifest=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
 
-# Remove non-installed files from manifest
-non_installed_prefixes=`echo "$CFG_NON_INSTALLED_PREFIXES" | tr "," " "`
-for prefix in $non_installed_prefixes; do
-    # This adds the escapes to '/' in paths to make them '\/' so sed doesn't puke.
-    # I figured this out by adding backslashes until it worked. holy shit.
-    prefix=`echo "$prefix" | sed s/\\\//\\\\\\\\\\\//g`
-    manifest=`echo "$manifest" | sed /^$prefix/d`
-done
-
 # Remove files in bulk dirs
 bulk_dirs=`echo "$CFG_BULK_DIRS" | tr "," " "`
 for bulk_dir in $bulk_dirs; do
@@ -316,6 +307,17 @@ echo "$CFG_COMPONENT_NAME" > "$component_file"
 
 # Write the installer version (only used by combine-installers.sh)
 echo "$rust_installer_version" > "$version_file"
+
+# Copy the overlay
+if [ -n "$CFG_NON_INSTALLED_OVERLAY" ]; then
+    overlay_files=`(cd "$CFG_NON_INSTALLED_OVERLAY" && find . -type f)`
+    for f in $overlay_files; do
+	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f" ]; then err "overlay $f exists"; fi
+
+	cp "$CFG_NON_INSTALLED_OVERLAY/$f" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f"
+	need_ok "failed to copy overlay $f"
+    done
+fi
 
 # Generate the install script
 "$src_dir/gen-install-script.sh" \

@@ -246,16 +246,16 @@ basic_uninstall() {
 runtest basic_uninstall
 
 not_installed_files() {
+    mkdir -p "$WORK_DIR/overlay"
+    touch "$WORK_DIR/overlay/not-installed"
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--non-installed-prefixes=something-to-not-install,dir-to-not-install
-    try test -e "$WORK_DIR/package/something-to-not-install"
-    try test -e "$WORK_DIR/package/dir-to-not-install"
+	--non-installed-overlay="$WORK_DIR/overlay"
+    try test -e "$WORK_DIR/package/not-installed"
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/something-to-not-install"
-    try test ! -e "$PREFIX_DIR/dir-to-not-install"
+    try test ! -e "$PREFIX_DIR/not-installed"
 }
 runtest not_installed_files
 
@@ -324,13 +324,16 @@ only_bulk_directory_no_files() {
 runtest only_bulk_directory_no_files
 
 nested_not_installed_files() {
+    mkdir -p "$WORK_DIR/overlay"
+    touch "$WORK_DIR/overlay/not-installed"
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image4" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--non-installed-prefixes=dir-to-install/qux/bar
+	--non-installed-overlay="$WORK_DIR/overlay"
+    try test -e "$WORK_DIR/package/not-installed"
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/dir-to-install/qux/bar"
+    try test ! -e "$PREFIX_DIR/not-installed"
 }
 runtest nested_not_installed_files
 

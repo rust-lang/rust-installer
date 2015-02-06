@@ -14,7 +14,7 @@ used by a future combined installer of Rust + Cargo.
                    --image-dir=./install-image \
                    --work-dir=./temp \
                    --output-dir=./dist \
-                   --non-installed-prefixes=foo,bin/bar,lib/baz \
+                   --non-installed-overlay=./overlay \
                    --package-name=rustc-nightly-i686-apple-darwin \
                    --component-name=rustc \
                    --legacy-manifest-dirs=rustlib \
