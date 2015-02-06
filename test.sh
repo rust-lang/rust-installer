@@ -389,6 +389,17 @@ uninstall_from_installed_script() {
 }
 runtest uninstall_from_installed_script
 
+uninstall_from_installed_script_with_args_fails() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR/c1" \
+	--output-dir="$OUT_DIR/c1" \
+	--component-name=rustc
+    try "$WORK_DIR/c1/package/install.sh" --prefix="$PREFIX_DIR"
+    expect_output_fail "uninstall.sh does not take any arguments" sh "$PREFIX_DIR/lib/packagelib/uninstall.sh" --prefix=foo
+}
+runtest uninstall_from_installed_script_with_args_fails
+
 # Combined installer tests
 
 combine_installers() {

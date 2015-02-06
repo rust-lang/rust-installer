@@ -295,6 +295,10 @@ src_basename="$(basename "$0")"
 # then we're doing a full uninstall, as opposed to the --uninstall flag
 # which just means 'uninstall my components'.
 if [ "$src_basename" = "uninstall.sh" ]; then
+    if [ "$*" != "" ]; then
+	# Currently don't know what to do with arguments in this mode
+	err "uninstall.sh does not take any arguments"
+    fi
     CFG_UNINSTALL=1
     CFG_DESTDIR_PREFIX="$(cd "$src_dir/../../" && pwd)"
     CFG_LIBDIR="$(cd "$src_dir/../" && pwd)"
