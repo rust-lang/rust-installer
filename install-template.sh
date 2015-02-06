@@ -472,10 +472,10 @@ if [ -n "$installed_version" ]; then
     # Check the version of the installed installer
     case "$installed_version" in
 
-	# TODO: If this is a previous version, then upgrade in place to the
-	# current version before uninstalling. No need to do this yet because
-	# there is no prior version (only the legacy 'unversioned' installer
-	# which we've already dealt with).
+	# If this is a previous version, then upgrade in place to the
+	# current version before uninstalling.
+	2)
+	    ;;
 
 	# This is the current version. Nothing need to be done except uninstall.
 	"$TEMPLATE_RUST_INSTALLER_VERSION")
