@@ -245,10 +245,18 @@ flag uninstall "only uninstall from the installation prefix"
 valopt destdir "" "set installation root"
 opt verify 1 "verify that the installed binaries run correctly"
 valopt prefix "/usr/local" "set installation prefix"
+
+# Avoid prepending an extra / to the prefix path if there's no destdir
+if [ -z "$CFG_DESTDIR" ]; then
+    CFG_DESTDIR_PREFIX="$CFG_PREFIX"
+else
+    CFG_DESTDIR_PREFIX="$CFG_DESTDIR/$CFG_PREFIX"
+fi
+
 # NB This isn't quite the same definition as in `configure`.
 # just using 'lib' instead of configure's CFG_LIBDIR_RELATIVE
-valopt libdir "${CFG_DESTDIR}/${CFG_PREFIX}/lib" "install libraries"
-valopt mandir "${CFG_DESTDIR}/${CFG_PREFIX}/share/man" "install man pages in PATH"
+valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
+valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 
 if [ $HELP -eq 1 ]
@@ -281,7 +289,7 @@ TEMPLATE_RUST_INSTALLER_VERSION=%%TEMPLATE_RUST_INSTALLER_VERSION%%
 src_dir="$(cd $(dirname "$0") && pwd)"
 
 # This is where we are installing to
-dest_prefix="$CFG_DESTDIR/$CFG_PREFIX"
+dest_prefix="$CFG_DESTDIR_PREFIX"
 
 # Figure out what platform we're on for dealing with dynamic linker stuff
 uname_value=$(uname -s)
@@ -369,7 +377,7 @@ msg "verifying destination is not the same as source"
 prefix_dir="$(cd "$dest_prefix" && pwd)"
 if [ "$src_dir" = "$prefix_dir" ]
 then
-    err "can't install to same directory as installer"
+    err "cannot install to same directory as installer"
 fi
 
 # Open the components file to get the list of components to install

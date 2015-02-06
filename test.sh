@@ -844,7 +844,8 @@ cannot_install_to_installer() {
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
 	--package-name=my-package
-    expect_fail "$WORK_DIR/my-package/install.sh" --prefix="$WORK_DIR/my-package"
+    expect_output_fail "cannot install to same directory as installer" \
+	"$WORK_DIR/my-package/install.sh" --prefix="$WORK_DIR/my-package"
 }
 runtest cannot_install_to_installer
 
