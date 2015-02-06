@@ -224,7 +224,7 @@ need_cmd chmod
 CFG_ARGS="$@"
 
 HELP=0
-if [ "$1" = "--help" ]
+if [ "${1-}" = "--help" ]
 then
     HELP=1
     shift
@@ -287,6 +287,18 @@ TEMPLATE_RUST_INSTALLER_VERSION=%%TEMPLATE_RUST_INSTALLER_VERSION%%
 
 # This is where we are installing from
 src_dir="$(cd $(dirname "$0") && pwd)"
+
+# The name of the script
+src_basename="$(basename "$0")"
+
+# If we've been run as 'uninstall.sh' (from the existing installation)
+# then we're doing a full uninstall, as opposed to the --uninstall flag
+# which just means 'uninstall my components'.
+if [ "$src_basename" = "uninstall.sh" ]; then
+    CFG_UNINSTALL=1
+    CFG_DESTDIR_PREFIX="$(cd "$src_dir/../../" && pwd)"
+    CFG_LIBDIR="$(cd "$src_dir/../" && pwd)"
+fi
 
 # This is where we are installing to
 dest_prefix="$CFG_DESTDIR_PREFIX"
@@ -375,12 +387,14 @@ need_ok "failed to remove install probe"
 # That would surely cause chaos.
 msg "verifying destination is not the same as source"
 prefix_dir="$(cd "$dest_prefix" && pwd)"
-if [ "$src_dir" = "$prefix_dir" ]
-then
+if [ "$src_dir" = "$prefix_dir" -a "${CFG_UNINSTALL-}" != 1 ]; then
     err "cannot install to same directory as installer"
 fi
 
-# Open the components file to get the list of components to install
+# Open the components file to get the list of components to install.
+# NB: During install this components file is read from the installer's
+# source dir, during a full uninstall it's read from the manifest dir,
+# and thus contains all installed components.
 components=`cat "$src_dir/components"`
 
 # Sanity check: do we have components?
@@ -694,6 +708,12 @@ if [ "$ostype" = "unknown-linux-gnu" -a ! -n "${CFG_DISABLE_LDCONFIG-}" ]; then
         warn "this may happen when not installing as root and may be fine"
     fi
 fi
+
+# Install the uninstaller
+uninstaller="$abs_libdir/$TEMPLATE_REL_MANIFEST_DIR/uninstall.sh"
+msg "creating uninstall script at $uninstaller"
+cp "$src_dir/$src_basename" "$uninstaller"
+need_ok "unable to install uninstaller"
 
 echo
 echo "    $TEMPLATE_SUCCESS_MESSAGE"

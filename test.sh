@@ -358,6 +358,37 @@ multiple_components() {
 }
 runtest multiple_components
 
+uninstall_from_installed_script() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR/c1" \
+	--output-dir="$OUT_DIR/c1" \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR/c2" \
+	--output-dir="$OUT_DIR/c2" \
+	--component-name=cargo
+    try "$WORK_DIR/c1/package/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/c2/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    # All components should be uninstalled by this script
+    try sh "$PREFIX_DIR/lib/packagelib/uninstall.sh"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
+}
+runtest uninstall_from_installed_script
+
 # Combined installer tests
 
 combine_installers() {
