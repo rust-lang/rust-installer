@@ -295,7 +295,7 @@ bulk_directory() {
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --uninstall
     try test ! -e "$PREFIX_DIR/dir-to-install"
 }
-runtest tarball_with_package_name
+runtest bulk_directory
 
 nested_bulk_directory() {
     try sh "$S/gen-installer.sh" \
