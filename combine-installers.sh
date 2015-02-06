@@ -285,7 +285,7 @@ for input_tarball in $input_tarballs; do
 	    command=`echo $directive | cut -f1 -d:`
 	    file=`echo $directive | cut -f2 -d:`
 
-	    new_file_path="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$file"
+	    new_file_path="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$component/$file"
 	    mkdir -p "$(dirname "$new_file_path")"
 
 	    case "$command" in
@@ -293,7 +293,7 @@ for input_tarball in $input_tarballs; do
 		    if [ -e "$new_file_path" ]; then
 			err "file $new_file_path already exists"
 		    fi
-		    cp -R "$CFG_WORK_DIR/$pkg_name/$file" "$new_file_path"
+		    cp -R "$CFG_WORK_DIR/$pkg_name/$component/$file" "$new_file_path"
 		    need_ok "failed to copy file $file"
 		    ;;
 
@@ -302,13 +302,13 @@ for input_tarball in $input_tarballs; do
 		    ;;
 
 	    esac
-	done < "$CFG_WORK_DIR/$pkg_name/manifest-$component.in"
+	done < "$CFG_WORK_DIR/$pkg_name/$component/manifest.in"
 
 	# Copy the manifest
-	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in" ]; then
+	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$component/manifest.in" ]; then
 	    err "manifest for $component already exists"
 	fi
-	cp "$CFG_WORK_DIR/$pkg_name/manifest-$component.in" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in"
+	cp "$CFG_WORK_DIR/$pkg_name/$component/manifest.in" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$component/manifest.in"
 	need_ok "failed to copy manifest for $component"
 
 	# Merge the component name

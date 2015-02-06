@@ -265,14 +265,14 @@ need_ok "couldn't create work dir"
 rm -Rf "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
 need_ok "couldn't delete work package dir"
 
-mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
+mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$CFG_COMPONENT_NAME"
 need_ok "couldn't create work package dir"
 
-cp -r "$CFG_IMAGE_DIR/"* "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
+cp -r "$CFG_IMAGE_DIR/"* "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$CFG_COMPONENT_NAME"
 need_ok "couldn't copy source image"
 
 # Create the manifest
-manifest=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME" && find . -type f | sed 's/^\.\///') | sort`
+manifest=`(cd "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$CFG_COMPONENT_NAME" && find . -type f | sed 's/^\.\///') | sort`
 
 # Remove files in bulk dirs
 bulk_dirs=`echo "$CFG_BULK_DIRS" | tr "," " "`
@@ -294,7 +294,7 @@ done
 # bulk dirs. Remove it.
 manifest=`echo "$manifest" | sed /^$/d`
 
-manifest_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$CFG_COMPONENT_NAME.in"
+manifest_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$CFG_COMPONENT_NAME/manifest.in"
 component_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
 version_file="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
 

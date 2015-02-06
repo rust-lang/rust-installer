@@ -577,7 +577,7 @@ need_ok "failed to create $TEMPLATE_REL_MANIFEST_DIR"
 for component in $components; do
 
     # The file name of the manifest we're installing from
-    input_manifest="$src_dir/manifest-$component.in"
+    input_manifest="$src_dir/$component/manifest.in"
 
     # The installed manifest directory
     md="$abs_libdir/$TEMPLATE_REL_MANIFEST_DIR"
@@ -635,9 +635,9 @@ for component in $components; do
 		msg "copying file $file_install_path"
 		if echo "$file" | grep "^bin/" > /dev/null
 		then
-		    install -m755 "$src_dir/$file" "$file_install_path"
+		    install -m755 "$src_dir/$component/$file" "$file_install_path"
 		else
-		    install -m644 "$src_dir/$file" "$file_install_path"
+		    install -m644 "$src_dir/$component/$file" "$file_install_path"
 		fi
 		need_ok "file creation failed"
 
@@ -657,7 +657,7 @@ for component in $components; do
 		    err "$file_install_path already exists"
 		fi
 
-		cp -R "$src_dir/$file" "$file_install_path"
+		cp -R "$src_dir/$component/$file" "$file_install_path"
 		need_ok "failed to copy directory"
 
                 # Set permissions. 0755 for dirs, 644 for files
