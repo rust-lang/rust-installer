@@ -766,7 +766,6 @@ destdir_no_trailing_slash() {
 runtest destdir_no_trailing_slash
 
 
-# TODO: DESTDIR
 # TODO: mandir/libdir/bindir, etc.
 
 echo
