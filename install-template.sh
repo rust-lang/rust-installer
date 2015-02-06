@@ -258,6 +258,7 @@ fi
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
+valopt components "" "comma-separated list of components to install"
 
 if [ $HELP -eq 1 ]
 then
@@ -404,6 +405,24 @@ components=`cat "$src_dir/components"`
 # Sanity check: do we have components?
 if [ ! -n "$components" ]; then
     err "unable to find installation components"
+fi
+
+# If the user specified which components to install/uninstall, then validate that they exist
+if [ -n "$CFG_COMPONENTS" ]; then
+    # Remove commas
+    user_components="$(echo "$CFG_COMPONENTS" | sed "s/,/ /g")"
+    for user_component in $user_components; do
+	found=false
+	for my_component in $components; do
+	    if [ "$user_component" = "$my_component" ]; then
+		found=true
+	    fi
+	done
+	if [ "$found" = false ]; then
+	    err "unknown component: $user_component"
+	fi
+    done
+    components="$user_components"
 fi
 
 # Using an absolute path to libdir in a few places so that the status
