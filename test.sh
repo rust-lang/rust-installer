@@ -259,16 +259,6 @@ not_installed_files() {
 }
 runtest not_installed_files
 
-verify_override() {
-    try sh "$S/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR" \
-	--verify-bin=program2
-    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-}
-runtest verify_override
-
 tarball_with_package_name() {
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image1" \
@@ -347,7 +337,6 @@ multiple_components() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR/c2" \
 	--output-dir="$OUT_DIR/c2" \
-	--verify-bin=cargo \
 	--component-name=cargo
     try "$WORK_DIR/c1/package/install.sh" --prefix="$PREFIX_DIR"
     try "$WORK_DIR/c2/package/install.sh" --prefix="$PREFIX_DIR"
@@ -382,7 +371,6 @@ combine_installers() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     try sh "$S/combine-installers.sh" \
@@ -419,7 +407,6 @@ combine_three_installers() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     try sh "$S/gen-installer.sh" \
@@ -464,7 +451,6 @@ combine_installers_with_overlay() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     mkdir -p "$WORK_DIR/overlay"
@@ -493,7 +479,6 @@ combined_with_bulk_dirs() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     try sh "$S/combine-installers.sh" \
@@ -520,7 +505,6 @@ combine_install_with_separate_uninstall() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo \
 	--rel-manifest-dir=rustlib
@@ -641,7 +625,6 @@ upgrade_from_v1_combined() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo \
 	--rel-manifest-dir=rustlib
@@ -805,7 +788,6 @@ upgrade_from_v2_combined() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo \
 	--rel-manifest-dir=rustlib
@@ -841,16 +823,6 @@ runtest upgrade_from_v2_combined
 # TODO upgrade_from_v2_with_bulk_dirs
 
 # Smoke tests
-
-cannot_run_bins_error() {
-    try sh "$S/gen-installer.sh" \
-	--verify-bin=bad-bin \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR"
-    expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-}
-runtest cannot_run_bins_error
 
 cannot_write_error() {
     # chmod doesn't work on windows
@@ -888,19 +860,8 @@ upgrade_from_future_installer_error() {
 }
 runtest upgrade_from_future_installer_error
 
-disable_verify() {
-    try sh "$S/gen-installer.sh" \
-	--verify-bin=bad-bin \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR"
-    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --disable-verify
-}
-runtest disable_verify
-
 destdir() {
     try sh "$S/gen-installer.sh" \
-	--verify-bin=program \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR"
@@ -911,7 +872,6 @@ runtest destdir
 
 destdir_no_trailing_slash() {
     try sh "$S/gen-installer.sh" \
-	--verify-bin=program \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR"

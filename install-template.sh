@@ -266,8 +266,6 @@ validate_opt
 
 # Rust or Cargo
 TEMPLATE_PRODUCT_NAME=%%TEMPLATE_PRODUCT_NAME%%
-# rustc or cargo
-TEMPLATE_VERIFY_BIN=%%TEMPLATE_VERIFY_BIN%%
 # rustlib or cargo
 TEMPLATE_REL_MANIFEST_DIR=%%TEMPLATE_REL_MANIFEST_DIR%%
 # 'Rust is ready to roll.' or 'Cargo is cool to cruise.'
@@ -351,28 +349,6 @@ then
 else
     ld_path_var=LD_LIBRARY_PATH
     old_ld_path_value="${LD_LIBRARY_PATH-}"
-fi
-
-# If we don't have a verify bin then disable verify
-if [ -z "$TEMPLATE_VERIFY_BIN" ]; then
-    CFG_DISABLE_VERIFY=1
-fi
-
-# Sanity check: can we run the binaries?
-if [ -z "${CFG_DISABLE_VERIFY-}" ]
-then
-    # Don't do this if uninstalling. Failure here won't help in any way.
-    if [ -z "${CFG_UNINSTALL-}" ]
-    then
-        msg "verifying platform can run binaries"
-        export $ld_path_var="${src_dir}/lib:$old_ld_path_value"
-        "${src_dir}/bin/${TEMPLATE_VERIFY_BIN}" --version 2> /dev/null 1> /dev/null
-        if [ $? -ne 0 ]
-        then
-            err "can't execute binaries on this platform"
-        fi
-        export $ld_path_var="$old_ld_path_value"
-    fi
 fi
 
 # Sanity check: can we can write to the destination?
@@ -708,27 +684,6 @@ if [ "$ostype" = "unknown-linux-gnu" -a ! -n "${CFG_DISABLE_LDCONFIG-}" ]; then
     then
         warn "failed to run ldconfig."
         warn "this may happen when not installing as root and may be fine"
-    fi
-fi
-
-# Sanity check: can we run the installed binaries?
-#
-# As with the verification above, make sure the right LD_LIBRARY_PATH-equivalent
-# is in place.
-if [ -z "${CFG_DISABLE_VERIFY-}" ]
-then
-    export $ld_path_var="$dest_prefix/lib:$old_ld_path_value"
-    "$dest_prefix/bin/$TEMPLATE_VERIFY_BIN" --version > /dev/null
-    if [ $? -ne 0 ]
-    then
-        err="can't execute installed binaries. "
-        err="${err}installation may be broken. "
-        err="${err}if this is expected then rerun install.sh with \`--disable-verify\` "
-        err="${err}or \`make install\` with \`--disable-verify-install\`"
-        err "${err}"
-    else
-        echo
-        echo "    note: please ensure '$dest_prefix/lib' is added to ${ld_path_var}"
     fi
 fi
 

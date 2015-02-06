@@ -232,7 +232,6 @@ VAL_OPTIONS=""
 valopt product-name "Product" "The name of the product, for display"
 valopt component-name "component" "The name of the component, distinct from other installed components"
 valopt package-name "package" "The name of the package, tarball"
-valopt verify-bin "" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "${CFG_PACKAGE_NAME}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
 valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
@@ -322,7 +321,6 @@ fi
 # Generate the install script
 "$src_dir/gen-install-script.sh" \
     --product-name="$CFG_PRODUCT_NAME" \
-    --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
     --success-message="$CFG_SUCCESS_MESSAGE" \
     --legacy-manifest-dirs="$CFG_LEGACY_MANIFEST_DIRS" \
