@@ -259,6 +259,7 @@ valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 valopt components "" "comma-separated list of components to install"
+flag list-components "list available components"
 
 if [ $HELP -eq 1 ]
 then
@@ -376,26 +377,6 @@ else
     old_ld_path_value="${LD_LIBRARY_PATH-}"
 fi
 
-# Sanity check: can we can write to the destination?
-msg "verifying destination is writable"
-umask 022 && mkdir -p "${CFG_LIBDIR}"
-need_ok "can't write to destination. consider \`sudo\`."
-touch "${CFG_LIBDIR}/rust-install-probe" > /dev/null
-if [ $? -ne 0 ]
-then
-    err "can't write to destination. consider \`sudo\`."
-fi
-rm -f "${CFG_LIBDIR}/rust-install-probe"
-need_ok "failed to remove install probe"
-
-# Sanity check: don't install to the directory containing the installer.
-# That would surely cause chaos.
-msg "verifying destination is not the same as source"
-prefix_dir="$(cd "$dest_prefix" && pwd)"
-if [ "$src_dir" = "$prefix_dir" -a "${CFG_UNINSTALL-}" != 1 ]; then
-    err "cannot install to same directory as installer"
-fi
-
 # Open the components file to get the list of components to install.
 # NB: During install this components file is read from the installer's
 # source dir, during a full uninstall it's read from the manifest dir,
@@ -405,6 +386,18 @@ components=`cat "$src_dir/components"`
 # Sanity check: do we have components?
 if [ ! -n "$components" ]; then
     err "unable to find installation components"
+fi
+
+# If the user asked for a component list, do that and exit
+if [ -n "${CFG_LIST_COMPONENTS-}" ]; then
+    echo
+    echo "# Available components"
+    echo
+    for component in $components; do
+	echo "* $component"
+    done
+    echo
+    exit 0
 fi
 
 # If the user specified which components to install/uninstall, then validate that they exist
@@ -423,6 +416,26 @@ if [ -n "$CFG_COMPONENTS" ]; then
 	fi
     done
     components="$user_components"
+fi
+
+# Sanity check: can we can write to the destination?
+msg "verifying destination is writable"
+umask 022 && mkdir -p "${CFG_LIBDIR}"
+need_ok "can't write to destination. consider \`sudo\`."
+touch "${CFG_LIBDIR}/rust-install-probe" > /dev/null
+if [ $? -ne 0 ]
+then
+    err "can't write to destination. consider \`sudo\`."
+fi
+rm -f "${CFG_LIBDIR}/rust-install-probe"
+need_ok "failed to remove install probe"
+
+# Sanity check: don't install to the directory containing the installer.
+# That would surely cause chaos.
+msg "verifying destination is not the same as source"
+prefix_dir="$(cd "$dest_prefix" && pwd)"
+if [ "$src_dir" = "$prefix_dir" -a "${CFG_UNINSTALL-}" != 1 ]; then
+    err "cannot install to same directory as installer"
 fi
 
 # Using an absolute path to libdir in a few places so that the status

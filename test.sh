@@ -707,6 +707,36 @@ invalid_component() {
 }
 runtest invalid_component
 
+list_components() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    expect_output_ok "rustc" "$WORK_DIR/rust/install.sh" --list-components
+    expect_output_ok "cargo" "$WORK_DIR/rust/install.sh" --list-components
+    expect_output_ok "rust-docs" "$WORK_DIR/rust/install.sh" --list-components
+}
+runtest list_components
+
 # Upgrade tests
 
 upgrade_from_v1() {
