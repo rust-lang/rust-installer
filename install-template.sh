@@ -16,10 +16,24 @@ msg() {
     echo "install: ${1-}"
 }
 
+verbose_msg() {
+    if [ -n "${CFG_VERBOSE-}" ]; then
+	msg "${1-}"
+    fi
+}
+
 step_msg() {
     msg
     msg "$1"
     msg
+}
+
+verbose_step_msg() {
+    if [ -n "${CFG_VERBOSE-}" ]; then
+	msg
+	msg "$1"
+	msg
+    fi
 }
 
 warn() {
@@ -44,7 +58,7 @@ assert_nz() {
 
 need_cmd() {
     if command -v $1 >/dev/null 2>&1
-    then msg "found $1"
+    then verbose_msg "found $1"
     else err "need $1"
     fi
 }
@@ -54,12 +68,6 @@ putvar() {
     local tlen
     eval t=\$$1
     eval tlen=\${#$1}
-    if [ $tlen -gt 35 ]
-    then
-        printf "install: %-20s := %.35s ...\n" $1 "$t"
-    else
-        printf "install: %-20s := %s %s\n" $1 "$t"
-    fi
 }
 
 valopt() {
@@ -384,6 +392,7 @@ uninstall_components() {
 	    local _installed_component
 	    for _installed_component in $_installed_components; do
 		if [ "$_available_component" = "$_installed_component" ]; then
+		    msg "uninstalling component '$_available_component'"
 		    local _component_manifest="$_md/manifest-$_installed_component"
 
 		    # Sanity check: there should be a component manifest
@@ -404,7 +413,7 @@ uninstall_components() {
 
 			case "$_command" in
 			    file)
-				msg "removing file $_file"
+				verbose_msg "removing file $_file"
 				if [ -f "$_file" ]; then
 				    rm -f "$_file"
 				    if [ $? -ne 0 ]; then
@@ -416,7 +425,7 @@ uninstall_components() {
 				;;
 
 			    dir)
-				msg "removing directory $_file"
+				verbose_msg "removing directory $_file"
 				rm -rf "$_file"
 				if [ $? -ne 0 ]; then
 				    warn "unable to remove directory $_file"
@@ -431,7 +440,7 @@ uninstall_components() {
 		    done < "$_component_manifest"
 
 		    # Remove the installed component manifest
-		    msg "removing component manifest $_component_manifest"
+		    verbose_msg "removing component manifest $_component_manifest"
 		    rm -f "$_component_manifest"
 		    # This is a hard error because the installation is unrecoverable
 		    need_ok "failed to remove installed manifest for component '$_installed_component'"
@@ -447,7 +456,7 @@ uninstall_components() {
 	# If there are no remaining components delete the manifest directory
 	local _remaining_components="$(cat "$_md/components")"
 	if [ ! -n "$_remaining_components" ]; then
-	    msg "removing manifest directory $_md"
+	    verbose_msg "removing manifest directory $_md"
 	    rm -rf "$_md"
 	    if [ $? -ne 0 ]; then
 		warn "failed to remove $_md"
@@ -472,6 +481,8 @@ install_components() {
 
     local _component
     for _component in $_components; do
+
+	msg "installing component '$_component'"
 
 	# The file name of the manifest we're installing from
 	local _input_manifest="$_src_dir/$_component/manifest.in"
@@ -531,7 +542,7 @@ install_components() {
 		file )
 
 		    # Install the file
-		    msg "copying file $_file_install_path"
+		    verbose_msg "copying file $_file_install_path"
 		    if echo "$_file" | grep "^bin/" > /dev/null
 		    then
 			install -m755 "$_src_dir/$_component/$_file" "$_file_install_path"
@@ -549,7 +560,7 @@ install_components() {
 		dir )
 
 		    # Copy the dir
-		    msg "copying directory $_file_install_path"
+		    verbose_msg "copying directory $_file_install_path"
 
 		    # Sanity check: bulk dirs are supposed to be uniquely ours and should not exist
 		    if [ -e "$_file_install_path" ]; then
@@ -587,12 +598,15 @@ maybe_run_ldconfig() {
     assert_nz "$_ostype"  "ostype"
 
     if [ "$_ostype" = "unknown-linux-gnu" -a ! -n "${CFG_DISABLE_LDCONFIG-}" ]; then
-	msg "running ldconfig"
-	ldconfig
+	verbose_msg "running ldconfig"
+	if [ -n "${CFG_VERBOSE-}" ]; then
+	    ldconfig
+	else
+	    ldconfig 2> /dev/null
+	fi
 	if [ $? -ne 0 ]
 	then
-            warn "failed to run ldconfig."
-            warn "this may happen when not installing as root and may be fine"
+            warn "failed to run ldconfig. this may happen when not installing as root. run with --verbose to see the error"
 	fi
     fi
 }
@@ -613,7 +627,7 @@ do_preflight_sanity_checks() {
     local _dest_prefix="$2"
 
     # Sanity check: can we can write to the destination?
-    msg "verifying destination is writable"
+    verbose_msg "verifying destination is writable"
     umask 022 && mkdir -p "$CFG_LIBDIR"
     need_ok "can't write to destination. consider \`sudo\`."
     touch "$CFG_LIBDIR/rust-install-probe" > /dev/null
@@ -626,15 +640,15 @@ do_preflight_sanity_checks() {
 
     # Sanity check: don't install to the directory containing the installer.
     # That would surely cause chaos.
-    msg "verifying destination is not the same as source"
+    verbose_msg "verifying destination is not the same as source"
     local _prefix_dir="$(cd "$dest_prefix" && pwd)"
     if [ "$_src_dir" = "$_dest_prefix" -a "${CFG_UNINSTALL-}" != 1 ]; then
 	err "cannot install to same directory as installer"
     fi
 }
 
-msg "looking for install programs"
-msg
+verbose_msg "looking for install programs"
+verbose_msg
 
 need_cmd mkdir
 need_cmd printf
@@ -658,7 +672,7 @@ then
     echo "Options:"
     echo
 else
-    step_msg "processing arguments"
+    verbose_step_msg "processing arguments"
 fi
 
 OPTIONS=""
@@ -684,6 +698,7 @@ valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 valopt components "" "comma-separated list of components to install"
 flag list-components "list available components"
+flag verbose "run with verbose output"
 
 if [ $HELP -eq 1 ]
 then
@@ -691,7 +706,7 @@ then
     exit 0
 fi
 
-step_msg "validating arguments"
+verbose_step_msg "validating arguments"
 validate_opt
 
 # Template configuration.
