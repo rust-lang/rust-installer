@@ -321,7 +321,7 @@ uninstall_legacy() {
 
 	    # Remove $template_rel_manifest_dir directory
 	    msg "removing legacy manifest dir $_abs_libdir/$_md"
-	    rm -Rf "$_abs_libdir/$_md"
+	    rm -R "$_abs_libdir/$_md"
 	    if [ $? -ne 0 ]
 	    then
 		warn "failed to remove $_md"
@@ -426,7 +426,7 @@ uninstall_components() {
 
 			    dir)
 				verbose_msg "removing directory $_file"
-				rm -rf "$_file"
+				rm -r "$_file"
 				if [ $? -ne 0 ]; then
 				    warn "unable to remove directory $_file"
 				fi
@@ -441,7 +441,7 @@ uninstall_components() {
 
 		    # Remove the installed component manifest
 		    verbose_msg "removing component manifest $_component_manifest"
-		    rm -f "$_component_manifest"
+		    rm "$_component_manifest"
 		    # This is a hard error because the installation is unrecoverable
 		    need_ok "failed to remove installed manifest for component '$_installed_component'"
 
@@ -457,7 +457,7 @@ uninstall_components() {
 	local _remaining_components="$(cat "$_md/components")"
 	if [ ! -n "$_remaining_components" ]; then
 	    verbose_msg "removing manifest directory $_md"
-	    rm -rf "$_md"
+	    rm -r "$_md"
 	    if [ $? -ne 0 ]; then
 		warn "failed to remove $_md"
 	    fi
@@ -635,7 +635,7 @@ do_preflight_sanity_checks() {
     then
 	err "can't write to destination. consider \`sudo\`."
     fi
-    rm -f "$CFG_LIBDIR/rust-install-probe"
+    rm "$CFG_LIBDIR/rust-install-probe"
     need_ok "failed to remove install probe"
 
     # Sanity check: don't install to the directory containing the installer.
