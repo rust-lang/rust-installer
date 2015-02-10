@@ -366,15 +366,18 @@ uninstall_components() {
 
 	    # If this is a previous version, then upgrade in place to the
 	    # current version before uninstalling.
-	    2)
+	    2 )
+		# The only change between version 2 -> 3 is that components are placed
+		# in subdirectories of the installer tarball. There are no changes
+		# to the installed data format, so nothing to do.
 		;;
 
 	    # This is the current version. Nothing need to be done except uninstall.
 	    "$TEMPLATE_RUST_INSTALLER_VERSION")
 		;;
 
-	    # TODO: If this is an unknown (future) version then bail.
-	    *)
+	    # If this is an unknown (future) version then bail.
+	    * )
 		echo "The copy of $TEMPLATE_PRODUCT_NAME at $_dest_prefix was installed using an"
 		echo "unknown version ($_installed_version) of rust-installer."
 		echo "Uninstall it first with the installer used for the original installation"
