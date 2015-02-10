@@ -279,7 +279,7 @@ install_overwrite_backup() {
     touch "$PREFIX_DIR/bin/program"
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
     # The existing program was backed up by 'install'
-    try test -e "$PREFIX_DIR/bin/program~"
+    try test -e "$PREFIX_DIR/bin/program.old"
 }
 runtest install_overwrite_backup
 
@@ -312,7 +312,7 @@ bulk_directory_overwrite() {
     # The file that used to exist in the directory no longer does
     try test ! -e "$PREFIX_DIR/dir-to-install/overwrite"
     # It was backed up
-    try test -e "$PREFIX_DIR/dir-to-install~/overwrite"
+    try test -e "$PREFIX_DIR/dir-to-install.old/overwrite"
 }
 runtest bulk_directory_overwrite
 

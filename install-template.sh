@@ -544,13 +544,15 @@ install_components() {
 	    case "$_command" in
 		file )
 
-		    # Install the file
 		    verbose_msg "copying file $_file_install_path"
+
+		    maybe_backup_path "$_file_install_path"
+
 		    if echo "$_file" | grep "^bin/" > /dev/null
 		    then
-			install -b -m755 "$_src_dir/$_component/$_file" "$_file_install_path"
+			install -m755 "$_src_dir/$_component/$_file" "$_file_install_path"
 		    else
-			install -b -m644 "$_src_dir/$_component/$_file" "$_file_install_path"
+			install -m644 "$_src_dir/$_component/$_file" "$_file_install_path"
 		    fi
 		    need_ok "file creation failed"
 
@@ -562,15 +564,9 @@ install_components() {
 
 		dir )
 
-		    # Copy the dir
 		    verbose_msg "copying directory $_file_install_path"
 
-		    # If the destination already exists, back it up ala the
-		    # `install` program.
-		    if [ -e "$_file_install_path" ]; then
-			verbose_say "backing up existing directory at $_file_install_path"
-			mv -f "$_file_install_path" "$_file_install_path~"
-		    fi
+		    maybe_backup_path "$_file_install_path"
 
 		    cp -R "$_src_dir/$_component/$_file" "$_file_install_path"
 		    need_ok "failed to copy directory"
@@ -613,6 +609,17 @@ maybe_run_ldconfig() {
 	then
             warn "failed to run ldconfig. this may happen when not installing as root. run with --verbose to see the error"
 	fi
+    fi
+}
+
+# Doing our own 'install'-like backup that is consistent across platforms
+maybe_backup_path() {
+    local _file_install_path="$1"
+
+    if [ -e "$_file_install_path" ]; then
+	msg "backing up existing directory at $_file_install_path"
+	mv -f "$_file_install_path" "$_file_install_path.old"
+	need_ok "failed to back up $_file_install_path"
     fi
 }
 
