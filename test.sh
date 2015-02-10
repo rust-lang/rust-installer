@@ -270,6 +270,19 @@ tarball_with_package_name() {
 }
 runtest tarball_with_package_name
 
+install_overwrite_backup() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try mkdir -p "$PREFIX_DIR/bin"
+    touch "$PREFIX_DIR/bin/program"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    # The existing program was backed up by 'install'
+    try test -e "$PREFIX_DIR/bin/program~"
+}
+runtest install_overwrite_backup
+
 bulk_directory() {
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image1" \
@@ -286,6 +299,40 @@ bulk_directory() {
     try test ! -e "$PREFIX_DIR/dir-to-install"
 }
 runtest bulk_directory
+
+bulk_directory_overwrite() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--bulk-dirs=dir-to-install
+    try mkdir -p "$PREFIX_DIR/dir-to-install"
+    try touch "$PREFIX_DIR/dir-to-install/overwrite"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    # The file that used to exist in the directory no longer does
+    try test ! -e "$PREFIX_DIR/dir-to-install/overwrite"
+    # It was backed up
+    try test -e "$PREFIX_DIR/dir-to-install~/overwrite"
+}
+runtest bulk_directory_overwrite
+
+bulk_directory_overwrite_existing_backup() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--bulk-dirs=dir-to-install
+    try mkdir -p "$PREFIX_DIR/dir-to-install"
+    try touch "$PREFIX_DIR/dir-to-install/overwrite"
+    # This time we've already got an existing backup of the overwritten directory.
+    # The install should still succeed.
+    try mkdir -p "$PREFIX_DIR/dir-to-install~"
+    try touch "$PREFIX_DIR/dir-to-install~/overwrite"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/dir-to-install/overwrite"
+    try test -e "$PREFIX_DIR/dir-to-install~/overwrite"
+}
+runtest bulk_directory_overwrite_existing_backup
 
 nested_bulk_directory() {
     try sh "$S/gen-installer.sh" \

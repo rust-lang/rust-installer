@@ -545,9 +545,9 @@ install_components() {
 		    verbose_msg "copying file $_file_install_path"
 		    if echo "$_file" | grep "^bin/" > /dev/null
 		    then
-			install -m755 "$_src_dir/$_component/$_file" "$_file_install_path"
+			install -b -m755 "$_src_dir/$_component/$_file" "$_file_install_path"
 		    else
-			install -m644 "$_src_dir/$_component/$_file" "$_file_install_path"
+			install -b -m644 "$_src_dir/$_component/$_file" "$_file_install_path"
 		    fi
 		    need_ok "file creation failed"
 
@@ -562,9 +562,11 @@ install_components() {
 		    # Copy the dir
 		    verbose_msg "copying directory $_file_install_path"
 
-		    # Sanity check: bulk dirs are supposed to be uniquely ours and should not exist
+		    # If the destination already exists, back it up ala the
+		    # `install` program.
 		    if [ -e "$_file_install_path" ]; then
-			err "$_file_install_path already exists"
+			verbose_say "backing up existing directory at $_file_install_path"
+			mv -f "$_file_install_path" "$_file_install_path~"
 		    fi
 
 		    cp -R "$_src_dir/$_component/$_file" "$_file_install_path"
