@@ -1142,6 +1142,44 @@ disable_verify_noop() {
 }
 runtest disable_verify_noop
 
+create_log() {
+    try sh "$S/gen-installer.sh" \
+       --image-dir="$TEST_DIR/image1" \
+       --work-dir="$WORK_DIR" \
+       --output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/lib/packagelib/install.log"
+    local _log="$(cat "$PREFIX_DIR/lib/packagelib/install.log")"
+    if [ -z "$_log" ]; then
+	fail "log is empty"
+    fi
+}
+runtest create_log
+
+leave_log_after_failure() {
+    # chmod doesn't work on windows
+    if [ ! -n "${WINDOWS-}" ]; then
+	try sh "$S/gen-installer.sh" \
+	    --image-dir="$TEST_DIR/image1" \
+	    --work-dir="$WORK_DIR" \
+	    --output-dir="$OUT_DIR"
+	mkdir -p "$PREFIX_DIR/lib/packagelib"
+	touch "$PREFIX_DIR/lib/packagelib/components"
+	chmod u-w "$PREFIX_DIR/lib/packagelib/components"
+	expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+	chmod u+w "$PREFIX_DIR/lib/packagelib/components"
+	try test -e "$PREFIX_DIR/lib/packagelib/install.log"
+	local _log="$(cat "$PREFIX_DIR/lib/packagelib/install.log")"
+	if [ -z "$_log" ]; then
+	    fail "log is empty"
+	fi
+	# script should tell user where the logs are
+	if ! grep -q "see logs at" "$PREFIX_DIR/lib/packagelib/install.log"; then
+	    fail "missing log message"
+	fi
+    fi
+}
+runtest leave_log_after_failure
 
 # TODO: mandir/libdir/bindir, etc.
 
