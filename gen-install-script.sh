@@ -226,7 +226,6 @@ BOOL_OPTIONS=""
 VAL_OPTIONS=""
 
 valopt product-name "Product" "The name of the product, for display"
-valopt verify-bin "" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "manifestlib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
 valopt output-script "install.sh" "The name of the output script"
@@ -256,7 +255,6 @@ script_template=`cat "$src_dir/install-template.sh"`
 # Using /bin/echo because under sh emulation dash *seems* to escape \n, which screws up the template
 script=`/bin/echo "$script_template"`
 script=`/bin/echo "$script" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/\"$product_name\"/"`
-script=`/bin/echo "$script" | sed "s/%%TEMPLATE_VERIFY_BIN%%/$CFG_VERIFY_BIN/"`
 script=`/bin/echo "$script" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/$CFG_REL_MANIFEST_DIR/"`
 script=`/bin/echo "$script" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"$success_message\"/"`
 script=`/bin/echo "$script" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"$CFG_LEGACY_MANIFEST_DIRS\"/"`

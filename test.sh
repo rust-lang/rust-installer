@@ -246,28 +246,18 @@ basic_uninstall() {
 runtest basic_uninstall
 
 not_installed_files() {
+    mkdir -p "$WORK_DIR/overlay"
+    touch "$WORK_DIR/overlay/not-installed"
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--non-installed-prefixes=something-to-not-install,dir-to-not-install
-    try test -e "$WORK_DIR/package/something-to-not-install"
-    try test -e "$WORK_DIR/package/dir-to-not-install"
+	--non-installed-overlay="$WORK_DIR/overlay"
+    try test -e "$WORK_DIR/package/not-installed"
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/something-to-not-install"
-    try test ! -e "$PREFIX_DIR/dir-to-not-install"
+    try test ! -e "$PREFIX_DIR/not-installed"
 }
 runtest not_installed_files
-
-verify_override() {
-    try sh "$S/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR" \
-	--verify-bin=program2
-    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-}
-runtest verify_override
 
 tarball_with_package_name() {
     try sh "$S/gen-installer.sh" \
@@ -279,6 +269,19 @@ tarball_with_package_name() {
     try test -e "$OUT_DIR/rustc-nightly.tar.gz"
 }
 runtest tarball_with_package_name
+
+install_overwrite_backup() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try mkdir -p "$PREFIX_DIR/bin"
+    touch "$PREFIX_DIR/bin/program"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    # The existing program was backed up by 'install'
+    try test -e "$PREFIX_DIR/bin/program.old"
+}
+runtest install_overwrite_backup
 
 bulk_directory() {
     try sh "$S/gen-installer.sh" \
@@ -295,7 +298,41 @@ bulk_directory() {
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --uninstall
     try test ! -e "$PREFIX_DIR/dir-to-install"
 }
-runtest tarball_with_package_name
+runtest bulk_directory
+
+bulk_directory_overwrite() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--bulk-dirs=dir-to-install
+    try mkdir -p "$PREFIX_DIR/dir-to-install"
+    try touch "$PREFIX_DIR/dir-to-install/overwrite"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    # The file that used to exist in the directory no longer does
+    try test ! -e "$PREFIX_DIR/dir-to-install/overwrite"
+    # It was backed up
+    try test -e "$PREFIX_DIR/dir-to-install.old/overwrite"
+}
+runtest bulk_directory_overwrite
+
+bulk_directory_overwrite_existing_backup() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--bulk-dirs=dir-to-install
+    try mkdir -p "$PREFIX_DIR/dir-to-install"
+    try touch "$PREFIX_DIR/dir-to-install/overwrite"
+    # This time we've already got an existing backup of the overwritten directory.
+    # The install should still succeed.
+    try mkdir -p "$PREFIX_DIR/dir-to-install~"
+    try touch "$PREFIX_DIR/dir-to-install~/overwrite"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/dir-to-install/overwrite"
+    try test -e "$PREFIX_DIR/dir-to-install~/overwrite"
+}
+runtest bulk_directory_overwrite_existing_backup
 
 nested_bulk_directory() {
     try sh "$S/gen-installer.sh" \
@@ -324,95 +361,18 @@ only_bulk_directory_no_files() {
 runtest only_bulk_directory_no_files
 
 nested_not_installed_files() {
+    mkdir -p "$WORK_DIR/overlay"
+    touch "$WORK_DIR/overlay/not-installed"
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image4" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--non-installed-prefixes=dir-to-install/qux/bar
+	--non-installed-overlay="$WORK_DIR/overlay"
+    try test -e "$WORK_DIR/package/not-installed"
     try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/dir-to-install/qux/bar"
+    try test ! -e "$PREFIX_DIR/not-installed"
 }
 runtest nested_not_installed_files
-
-# Upgrade tests
-
-upgrade_v1_v2() {
-    mkdir "$WORK_DIR/v1"
-    try sh "$S/test/rust-installer-v1/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image2" \
-	--work-dir="$WORK_DIR/v1" \
-	--output-dir="$OUT_DIR/v1" \
-	--verify-bin=oldprogram \
-	--rel-manifest-dir=packagelib
-    try sh "$S/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR" \
-	--rel-manifest-dir=packagelib \
-	--legacy-manifest-dirs=packagelib
-    try "$WORK_DIR/v1/package/install.sh" --prefix="$PREFIX_DIR"
-    try test -e "$PREFIX_DIR/something-to-install"
-    try test -e "$PREFIX_DIR/dir-to-install/bar"
-    try test -e "$PREFIX_DIR/bin/oldprogram"
-    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/dir-to-install/bar"
-    try test ! -e "$PREFIX_DIR/bin/oldprogram"
-    try test -e "$PREFIX_DIR/something-to-install"
-    try test -e "$PREFIX_DIR/dir-to-install/foo"
-    try test -e "$PREFIX_DIR/bin/program"
-    try test -e "$PREFIX_DIR/bin/program2"
-    try test -e "$PREFIX_DIR/bin/bad-bin"
-    try "$WORK_DIR/package/install.sh --uninstall" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/something-to-install"
-    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
-    try test ! -e "$PREFIX_DIR/bin/program"
-    try test ! -e "$PREFIX_DIR/bin/program2"
-    try test ! -e "$PREFIX_DIR/bin/bad-bin"
-    try test ! -e "$PREFIX_DIR/lib/packagelib"
-}
-runtest upgrade_v1_v2
-
-upgrade_v1_v2_with_multiple_legacy_manifests() {
-    mkdir "$WORK_DIR/v1"
-    try sh "$S/test/rust-installer-v1/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image2" \
-	--work-dir="$WORK_DIR/v1" \
-	--output-dir="$OUT_DIR/v1" \
-	--verify-bin=oldprogram \
-	--rel-manifest-dir=rustlib
-    try sh "$S/test/rust-installer-v1/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image3" \
-	--work-dir="$WORK_DIR/v1b" \
-	--output-dir="$OUT_DIR/v1b" \
-	--verify-bin=cargo \
-	--rel-manifest-dir=cargo
-    try sh "$S/gen-installer.sh" \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR" \
-	--rel-manifest-dir=packagelib \
-	--legacy-manifest-dirs=rustlib,cargo
-    try "$WORK_DIR/v1/package/install.sh" --prefix="$PREFIX_DIR"
-    try "$WORK_DIR/v1b/package/install.sh" --prefix="$PREFIX_DIR"
-    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/dir-to-install/bar"
-    try test ! -e "$PREFIX_DIR/bin/oldprogram"
-    try test ! -e "$PREFIX_DIR/bin/cargo"
-    try test ! -e "$PREFIX_DIR/lib/cargo"
-    try test -e "$PREFIX_DIR/something-to-install"
-    try test -e "$PREFIX_DIR/dir-to-install/foo"
-    try test -e "$PREFIX_DIR/bin/program"
-    try test -e "$PREFIX_DIR/bin/program2"
-    try test -e "$PREFIX_DIR/bin/bad-bin"
-    try "$WORK_DIR/package/install.sh --uninstall" --prefix="$PREFIX_DIR"
-    try test ! -e "$PREFIX_DIR/something-to-install"
-    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
-    try test ! -e "$PREFIX_DIR/bin/program"
-    try test ! -e "$PREFIX_DIR/bin/program2"
-    try test ! -e "$PREFIX_DIR/bin/bad-bin"
-    try test ! -e "$PREFIX_DIR/lib/packagelib"
-}
-runtest upgrade_v1_v2_with_multiple_legacy_manifests
 
 multiple_components() {
     try sh "$S/gen-installer.sh" \
@@ -424,7 +384,6 @@ multiple_components() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR/c2" \
 	--output-dir="$OUT_DIR/c2" \
-	--verify-bin=cargo \
 	--component-name=cargo
     try "$WORK_DIR/c1/package/install.sh" --prefix="$PREFIX_DIR"
     try "$WORK_DIR/c2/package/install.sh" --prefix="$PREFIX_DIR"
@@ -446,6 +405,48 @@ multiple_components() {
 }
 runtest multiple_components
 
+uninstall_from_installed_script() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR/c1" \
+	--output-dir="$OUT_DIR/c1" \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR/c2" \
+	--output-dir="$OUT_DIR/c2" \
+	--component-name=cargo
+    try "$WORK_DIR/c1/package/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/c2/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    # All components should be uninstalled by this script
+    try sh "$PREFIX_DIR/lib/packagelib/uninstall.sh"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
+}
+runtest uninstall_from_installed_script
+
+uninstall_from_installed_script_with_args_fails() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR/c1" \
+	--output-dir="$OUT_DIR/c1" \
+	--component-name=rustc
+    try "$WORK_DIR/c1/package/install.sh" --prefix="$PREFIX_DIR"
+    expect_output_fail "uninstall.sh does not take any arguments" sh "$PREFIX_DIR/lib/packagelib/uninstall.sh" --prefix=foo
+}
+runtest uninstall_from_installed_script_with_args_fails
+
 # Combined installer tests
 
 combine_installers() {
@@ -459,7 +460,6 @@ combine_installers() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     try sh "$S/combine-installers.sh" \
@@ -496,7 +496,6 @@ combine_three_installers() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     try sh "$S/gen-installer.sh" \
@@ -541,7 +540,6 @@ combine_installers_with_overlay() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     mkdir -p "$WORK_DIR/overlay"
@@ -570,7 +568,6 @@ combined_with_bulk_dirs() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo
     try sh "$S/combine-installers.sh" \
@@ -597,7 +594,6 @@ combine_install_with_separate_uninstall() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo \
 	--rel-manifest-dir=rustlib
@@ -626,7 +622,249 @@ combine_install_with_separate_uninstall() {
 }
 runtest combine_install_with_separate_uninstall
 
-combined_v1_v2_upgrade() {
+select_components_to_install() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --components=rustc
+    try test -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --components=cargo
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --components=rust-docs
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --components=rustc,cargo
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --components=rustc,cargo,rust-docs
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
+}
+runtest select_components_to_install
+
+select_components_to_uninstall() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --components=rustc
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --components=cargo
+    try test -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --components=rust-docs
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --components=rustc,cargo
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --components=rustc,cargo,rust-docs
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
+}
+runtest select_components_to_uninstall
+
+invalid_component() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    expect_output_fail "unknown component" "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --components=foo
+}
+runtest invalid_component
+
+list_components() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    expect_output_ok "rustc" "$WORK_DIR/rust/install.sh" --list-components
+    expect_output_ok "cargo" "$WORK_DIR/rust/install.sh" --list-components
+    expect_output_ok "rust-docs" "$WORK_DIR/rust/install.sh" --list-components
+}
+runtest list_components
+
+# Upgrade tests
+
+upgrade_from_v1() {
+    mkdir "$WORK_DIR/v1"
+    try sh "$S/test/rust-installer-v1/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image2" \
+	--work-dir="$WORK_DIR/v1" \
+	--output-dir="$OUT_DIR/v1" \
+	--verify-bin=oldprogram \
+	--rel-manifest-dir=packagelib
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--rel-manifest-dir=packagelib \
+	--legacy-manifest-dirs=packagelib
+    try "$WORK_DIR/v1/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/bar"
+    try test -e "$PREFIX_DIR/bin/oldprogram"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/dir-to-install/bar"
+    try test ! -e "$PREFIX_DIR/bin/oldprogram"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try "$WORK_DIR/package/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
+}
+runtest upgrade_from_v1
+
+upgrade_from_v1_with_multiple_legacy_manifests() {
+    mkdir "$WORK_DIR/v1"
+    try sh "$S/test/rust-installer-v1/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image2" \
+	--work-dir="$WORK_DIR/v1" \
+	--output-dir="$OUT_DIR/v1" \
+	--verify-bin=oldprogram \
+	--rel-manifest-dir=rustlib
+    try sh "$S/test/rust-installer-v1/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR/v1b" \
+	--output-dir="$OUT_DIR/v1b" \
+	--verify-bin=cargo \
+	--rel-manifest-dir=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--rel-manifest-dir=packagelib \
+	--legacy-manifest-dirs=rustlib,cargo
+    try "$WORK_DIR/v1/package/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/v1b/package/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/dir-to-install/bar"
+    try test ! -e "$PREFIX_DIR/bin/oldprogram"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/lib/cargo"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try "$WORK_DIR/package/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
+}
+runtest upgrade_from_v1_with_multiple_legacy_manifests
+
+upgrade_from_v1_combined() {
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
@@ -638,7 +876,6 @@ combined_v1_v2_upgrade() {
 	--image-dir="$TEST_DIR/image3" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
-	--verify-bin=cargo \
 	--package-name=cargo \
 	--component-name=cargo \
 	--rel-manifest-dir=rustlib
@@ -683,19 +920,160 @@ combined_v1_v2_upgrade() {
     try test ! -e "$PREFIX_DIR/bin/cargo"
     try test ! -e "$PREFIX_DIR/lib/rustlib"
 }
-runtest combined_v1_v2_upgrade
+runtest upgrade_from_v1_combined
 
-# Smoke tests
-
-cannot_run_bins_error() {
+upgrade_from_v2() {
+    mkdir "$WORK_DIR/v2"
+    try sh "$S/test/rust-installer-v2/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image2" \
+	--work-dir="$WORK_DIR/v2" \
+	--output-dir="$OUT_DIR/v2" \
+	--verify-bin=oldprogram \
+	--rel-manifest-dir=packagelib
     try sh "$S/gen-installer.sh" \
-	--verify-bin=bad-bin \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR"
-    expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+	--output-dir="$OUT_DIR" \
+	--rel-manifest-dir=packagelib \
+	--legacy-manifest-dirs=packagelib
+    try "$WORK_DIR/v2/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/bar"
+    try test -e "$PREFIX_DIR/bin/oldprogram"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/dir-to-install/bar"
+    try test ! -e "$PREFIX_DIR/bin/oldprogram"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try "$WORK_DIR/package/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    try test ! -e "$PREFIX_DIR/lib/packagelib"
 }
-runtest cannot_run_bins_error
+runtest upgrade_from_v2
+
+upgrade_from_v2_with_multiple_components() {
+    mkdir "$WORK_DIR/v2"
+    try sh "$S/test/rust-installer-v2/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image2" \
+	--work-dir="$WORK_DIR/v2" \
+	--output-dir="$OUT_DIR/v2" \
+	--verify-bin=oldprogram \
+	--component-name=oldcomponent \
+	--rel-manifest-dir=rustlib
+    try sh "$S/test/rust-installer-v2/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR/v2b" \
+	--output-dir="$OUT_DIR/v2b" \
+	--verify-bin=cargo \
+	--component-name=samecomponent \
+	--rel-manifest-dir=rustlib
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--component-name=samecomponent \
+	--rel-manifest-dir=rustlib
+    try "$WORK_DIR/v2/package/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/v2b/package/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    # oldcomponent remains
+    try test -e "$PREFIX_DIR/dir-to-install/bar"
+    try test -e "$PREFIX_DIR/bin/oldprogram"
+    # Old version of samecomponent is gone
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    # New stuff was installed
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try "$WORK_DIR/package/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    # rustlib is still around because oldcomponent is still installed
+    try test -e "$PREFIX_DIR/lib/rustlib"
+    try test -e "$PREFIX_DIR/lib/rustlib/manifest-oldcomponent"
+}
+runtest upgrade_from_v2_with_multiple_components
+
+upgrade_from_v2_combined() {
+    try sh "$S/test/rust-installer-v2/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR/v2" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc \
+	--rel-manifest-dir=rustlib
+    try sh "$S/test/rust-installer-v2/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR/v2" \
+	--output-dir="$OUT_DIR" \
+	--verify-bin=oldprogram \
+	--package-name=cargo \
+	--component-name=cargo \
+	--rel-manifest-dir=rustlib
+    try sh "$S/test/rust-installer-v2/combine-installers.sh" \
+	--work-dir="$WORK_DIR/v2" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz" \
+	--rel-manifest-dir=rustlib
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc \
+	--rel-manifest-dir=rustlib
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo \
+	--rel-manifest-dir=rustlib
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz" \
+	--rel-manifest-dir=rustlib
+    try "$WORK_DIR/v2/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    # image4 was removed in the cargo upgrade
+    try test ! -e "$PREFIX_DIR/baz"
+    try test ! -e "$PREFIX_DIR/dir-to-install/qux/bar"
+    try test -e "$PREFIX_DIR/something-to-install"
+    try test -e "$PREFIX_DIR/dir-to-install/foo"
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/program2"
+    try test -e "$PREFIX_DIR/bin/bad-bin"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/lib/rustlib"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try test ! -e "$PREFIX_DIR/something-to-install"
+    try test ! -e "$PREFIX_DIR/dir-to-install/foo"
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/program2"
+    try test ! -e "$PREFIX_DIR/bin/bad-bin"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/lib/rustlib"
+}
+runtest upgrade_from_v2_combined
+
+# TODO upgrade_from_v2_with_bulk_dirs
+
+# Smoke tests
 
 cannot_write_error() {
     # chmod doesn't work on windows
@@ -717,7 +1095,8 @@ cannot_install_to_installer() {
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR" \
 	--package-name=my-package
-    expect_fail "$WORK_DIR/my-package/install.sh" --prefix="$WORK_DIR/my-package"
+    expect_output_fail "cannot install to same directory as installer" \
+	"$WORK_DIR/my-package/install.sh" --prefix="$WORK_DIR/my-package"
 }
 runtest cannot_install_to_installer
 
@@ -733,19 +1112,8 @@ upgrade_from_future_installer_error() {
 }
 runtest upgrade_from_future_installer_error
 
-disable_verify() {
-    try sh "$S/gen-installer.sh" \
-	--verify-bin=bad-bin \
-	--image-dir="$TEST_DIR/image1" \
-	--work-dir="$WORK_DIR" \
-	--output-dir="$OUT_DIR"
-    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --disable-verify
-}
-runtest disable_verify
-
 destdir() {
     try sh "$S/gen-installer.sh" \
-	--verify-bin=program \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR"
@@ -756,7 +1124,6 @@ runtest destdir
 
 destdir_no_trailing_slash() {
     try sh "$S/gen-installer.sh" \
-	--verify-bin=program \
 	--image-dir="$TEST_DIR/image1" \
 	--work-dir="$WORK_DIR" \
 	--output-dir="$OUT_DIR"
@@ -765,8 +1132,55 @@ destdir_no_trailing_slash() {
 }
 runtest destdir_no_trailing_slash
 
+disable_verify_noop() {
+    # Obsolete --disable-verify flag doesn't generate error
+    try sh "$S/gen-installer.sh" \
+       --image-dir="$TEST_DIR/image1" \
+       --work-dir="$WORK_DIR" \
+       --output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --disable-verify
+}
+runtest disable_verify_noop
 
-# TODO: DESTDIR
+create_log() {
+    try sh "$S/gen-installer.sh" \
+       --image-dir="$TEST_DIR/image1" \
+       --work-dir="$WORK_DIR" \
+       --output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/lib/packagelib/install.log"
+    local _log="$(cat "$PREFIX_DIR/lib/packagelib/install.log")"
+    if [ -z "$_log" ]; then
+	fail "log is empty"
+    fi
+}
+runtest create_log
+
+leave_log_after_failure() {
+    # chmod doesn't work on windows
+    if [ ! -n "${WINDOWS-}" ]; then
+	try sh "$S/gen-installer.sh" \
+	    --image-dir="$TEST_DIR/image1" \
+	    --work-dir="$WORK_DIR" \
+	    --output-dir="$OUT_DIR"
+	mkdir -p "$PREFIX_DIR/lib/packagelib"
+	touch "$PREFIX_DIR/lib/packagelib/components"
+	chmod u-w "$PREFIX_DIR/lib/packagelib/components"
+	expect_fail "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+	chmod u+w "$PREFIX_DIR/lib/packagelib/components"
+	try test -e "$PREFIX_DIR/lib/packagelib/install.log"
+	local _log="$(cat "$PREFIX_DIR/lib/packagelib/install.log")"
+	if [ -z "$_log" ]; then
+	    fail "log is empty"
+	fi
+	# script should tell user where the logs are
+	if ! grep -q "see logs at" "$PREFIX_DIR/lib/packagelib/install.log"; then
+	    fail "missing log message"
+	fi
+    fi
+}
+runtest leave_log_after_failure
+
 # TODO: mandir/libdir/bindir, etc.
 
 echo

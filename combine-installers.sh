@@ -230,7 +230,6 @@ VAL_OPTIONS=""
 
 valopt product-name "Product" "The name of the product, for display"
 valopt package-name "package" "The name of the package, tarball"
-valopt verify-bin "" "The command to run with --version to verify the install works"
 valopt rel-manifest-dir "${CFG_PACKAGE_NAME}lib" "The directory under lib/ where the manifest lives"
 valopt success-message "Installed." "The string to print after successful installation"
 valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
@@ -279,38 +278,13 @@ for input_tarball in $input_tarballs; do
 	err "incorrect installer version in $input_tarball"
     fi
 
-    # Interpret the manifest to copy the contents to the new installer
+    # Copy components to new combined installer
     components=`cat "$CFG_WORK_DIR/$pkg_name/components"`
     for component in $components; do
-	while read directive; do
-	    command=`echo $directive | cut -f1 -d:`
-	    file=`echo $directive | cut -f2 -d:`
 
-	    new_file_path="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$file"
-	    mkdir -p "$(dirname "$new_file_path")"
-
-	    case "$command" in
-		file | dir)
-		    if [ -e "$new_file_path" ]; then
-			err "file $new_file_path already exists"
-		    fi
-		    cp -R "$CFG_WORK_DIR/$pkg_name/$file" "$new_file_path"
-		    need_ok "failed to copy file $file"
-		    ;;
-
-		* )
-		    err "unknown command"
-		    ;;
-
-	    esac
-	done < "$CFG_WORK_DIR/$pkg_name/manifest-$component.in"
-
-	# Copy the manifest
-	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in" ]; then
-	    err "manifest for $component already exists"
-	fi
-	cp "$CFG_WORK_DIR/$pkg_name/manifest-$component.in" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/manifest-$component.in"
-	need_ok "failed to copy manifest for $component"
+	# All we need to do is copy the component directory
+	cp -R "$CFG_WORK_DIR/$pkg_name/$component" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$component"
+	need_ok "failed to copy component $component"
 
 	# Merge the component name
 	echo "$component" >> "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
@@ -335,7 +309,6 @@ fi
 # Generate the install script
 "$src_dir/gen-install-script.sh" \
     --product-name="$CFG_PRODUCT_NAME" \
-    --verify-bin="$CFG_VERIFY_BIN" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
     --success-message="$CFG_SUCCESS_MESSAGE" \
     --legacy-manifest-dirs="$CFG_LEGACY_MANIFEST_DIRS" \
