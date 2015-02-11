@@ -51,13 +51,9 @@ To combine installers.
 
 * Make install.sh not have to be customized, pull it's data from a
   config file.
-* Install an uninstall.sh script.
-* Allow components to be selected during install.
-* Allow components to be modified from an existing install.
 * Be more resiliant to installation failures, particularly if the disk
   is full.
 * Pre-install and post-uninstall scripts.
-* Be more thoughtful about overwriting existing files.
 * Allow components to depend on or contradict other components.
 * Sanity check that expected destination dirs (bin, lib, share exist)?
 * Add --docdir flag. Is there a standard name for this?
@@ -66,5 +62,3 @@ To combine installers.
   installs/uninstalls.
 * Fix argument handling for spaces.
 * Add --bindir.
-* Store components in their own directories for cases where they
-  contain the same files.
