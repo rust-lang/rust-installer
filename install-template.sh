@@ -829,6 +829,7 @@ need_ok "failed to create $TEMPLATE_REL_MANIFEST_DIR"
 
 # Drop the version number into the manifest dir
 echo "$TEMPLATE_RUST_INSTALLER_VERSION" > "$abs_libdir/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version"
+need_ok "failed to write installer version"
 
 # Install the uninstaller
 install_uninstaller "$src_dir" "$src_basename" "$abs_libdir"
