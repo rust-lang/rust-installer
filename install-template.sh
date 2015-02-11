@@ -505,6 +505,10 @@ install_components() {
 	touch "$_installed_manifest"
 	need_ok "failed to create installed manifest"
 
+	# Add this component to the installed component list
+	echo "$_component" >> "$_md/components"
+	need_ok "failed to update components list for $_component"
+
 	# Now install, iterate through the new manifest and copy files
 	local _directive
 	while read _directive; do
@@ -585,10 +589,6 @@ install_components() {
 		    ;;
 	    esac
 	done < "$_input_manifest"
-
-	# Update the components
-	echo "$_component" >> "$_md/components"
-	need_ok "failed to update components list for $_component"
 
     done
 }
@@ -827,17 +827,17 @@ fi
 mkdir -p "$CFG_LIBDIR/$TEMPLATE_REL_MANIFEST_DIR"
 need_ok "failed to create $TEMPLATE_REL_MANIFEST_DIR"
 
-# Install each component
-install_components "$src_dir" "$abs_libdir" "$dest_prefix" "$components"
-
 # Drop the version number into the manifest dir
 echo "$TEMPLATE_RUST_INSTALLER_VERSION" > "$abs_libdir/$TEMPLATE_REL_MANIFEST_DIR/rust-installer-version"
 
-# Run ldconfig to make dynamic libraries available to the linker
-maybe_run_ldconfig
-
 # Install the uninstaller
 install_uninstaller "$src_dir" "$src_basename" "$abs_libdir"
+
+# Install each component
+install_components "$src_dir" "$abs_libdir" "$dest_prefix" "$components"
+
+# Run ldconfig to make dynamic libraries available to the linker
+maybe_run_ldconfig
 
 echo
 echo "    $TEMPLATE_SUCCESS_MESSAGE"
