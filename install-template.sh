@@ -693,7 +693,6 @@ VAL_OPTIONS=""
 
 flag uninstall "only uninstall from the installation prefix"
 valopt destdir "" "set installation root"
-opt verify 1 "verify that the installed binaries run correctly"
 valopt prefix "/usr/local" "set installation prefix"
 
 # Avoid prepending an extra / to the prefix path if there's no destdir
@@ -710,6 +709,7 @@ valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 valopt components "" "comma-separated list of components to install"
 flag list-components "list available components"
+opt verify 1 "obsolete"
 flag verbose "run with verbose output"
 
 if [ $HELP -eq 1 ]

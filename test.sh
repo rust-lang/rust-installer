@@ -1132,6 +1132,16 @@ destdir_no_trailing_slash() {
 }
 runtest destdir_no_trailing_slash
 
+disable_verify_noop() {
+    # Obsolete --disable-verify flag doesn't generate error
+    try sh "$S/gen-installer.sh" \
+       --image-dir="$TEST_DIR/image1" \
+       --work-dir="$WORK_DIR" \
+       --output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --disable-verify
+}
+runtest disable_verify_noop
+
 
 # TODO: mandir/libdir/bindir, etc.
 
