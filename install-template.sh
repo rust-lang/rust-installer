@@ -786,11 +786,12 @@ fi
 
 # NB This isn't quite the same definition as in `configure`.
 # just using 'lib' instead of configure's CFG_LIBDIR_RELATIVE
+valopt without "" "comma-separated list of components to not install"
+valopt components "" "comma-separated list of components to install"
+flag list-components "list available components"
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
-valopt components "" "comma-separated list of components to install"
-flag list-components "list available components"
 opt verify 1 "obsolete"
 flag verbose "run with verbose output"
 
@@ -882,6 +883,21 @@ if [ -n "$CFG_COMPONENTS" ]; then
 	fi
     done
     components="$user_components"
+fi
+
+if [ -n "$CFG_WITHOUT" ]; then
+    without_components="$(echo "$CFG_WITHOUT" | sed "s/,/ /g")"
+    for without_component in $without_components; do
+	components="$(echo "$components" | sed "s/$without_component//" | sed "s/$without_component//")"
+    done
+fi
+
+if [ -z "$components" ]; then
+    if [ -z "${CFG_UNINSTALL-}" ]; then
+	err "no components selected for installation"
+    else
+	err "no components selected for uninstallation"
+    fi
 fi
 
 do_preflight_sanity_checks "$src_dir" "$dest_prefix"

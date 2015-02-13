@@ -754,6 +754,152 @@ invalid_component() {
 }
 runtest invalid_component
 
+without_components() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --without=rust-docs
+    try test -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --without=rust-docs,cargo
+    try test -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --without=rust-docs,rustc
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test ! -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR"
+}
+runtest without_components
+
+# --uninstall --without is kind of weird,
+# --without causes components to remain installed
+uninstall_without_components() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --without=rust-docs
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --without=rust-docs,cargo
+    try test ! -e "$PREFIX_DIR/bin/program"
+    try test -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    try "$WORK_DIR/rust/install.sh --uninstall" --prefix="$PREFIX_DIR" --without=rust-docs,rustc
+    try test -e "$PREFIX_DIR/bin/program"
+    try test ! -e "$PREFIX_DIR/bin/cargo"
+    try test -e "$PREFIX_DIR/baz"
+}
+runtest uninstall_without_components
+
+without_any_components() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    expect_output_fail "no components selected for installation" \
+	"$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --without=rust-docs,rustc,cargo
+}
+runtest without_any_components
+
+uninstall_without_any_components() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR"
+    expect_output_fail "no components selected for uninstallation" \
+	"$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" \
+	--uninstall --without=rust-docs,rustc,cargo
+}
+runtest uninstall_without_any_components
+
 list_components() {
     try sh "$S/gen-installer.sh" \
 	--image-dir="$TEST_DIR/image1" \
