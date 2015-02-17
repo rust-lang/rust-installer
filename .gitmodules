@@ -3,4 +3,4 @@
 	url = https://github.com/rust-lang/rust-installer
 [submodule "test/rust-installer-v2"]
 	path = test/rust-installer-v2
-	url = http://github.com/rust-lang/rust-installer
+	url = https://github.com/rust-lang/rust-installer
