@@ -1,6 +1,0 @@
-[submodule "test/rust-installer-v1"]
-	path = test/rust-installer-v1
-	url = .
-[submodule "test/rust-installer-v2"]
-	path = test/rust-installer-v2
-	url = .

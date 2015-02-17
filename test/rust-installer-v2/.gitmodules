@@ -1,0 +1,3 @@
+[submodule "test/rust-installer-v1"]
+	path = test/rust-installer-v1
+	url = https://github.com/rust-lang/rust-installer
