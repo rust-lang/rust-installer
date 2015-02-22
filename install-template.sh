@@ -757,7 +757,7 @@ need_cmd tr
 need_cmd sed
 need_cmd chmod
 
-CFG_ARGS="$@"
+CFG_ARGS="${@:-}"
 
 HELP=0
 if [ "${1-}" = "--help" ]
@@ -835,7 +835,7 @@ src_basename="$(basename "$0")"
 # then we're doing a full uninstall, as opposed to the --uninstall flag
 # which just means 'uninstall my components'.
 if [ "$src_basename" = "uninstall.sh" ]; then
-    if [ "$*" != "" ]; then
+    if [ "${*:-}" != "" ]; then
 	# Currently don't know what to do with arguments in this mode
 	err "uninstall.sh does not take any arguments"
     fi
