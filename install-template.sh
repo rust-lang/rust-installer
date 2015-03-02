@@ -605,16 +605,18 @@ install_components() {
 	    # Decide the destination of the file
 	    local _file_install_path="$_dest_prefix/$_file"
 
-	    if echo "$_file" | grep "^lib/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^lib\///')"
-		_file_install_path="$CFG_LIBDIR/$_f"
-	    fi
+	    if [ -n "${CFG_REWRITE_PATHS-}" ]; then
+		if echo "$_file" | grep "^lib/" > /dev/null
+		then
+		    local _f="$(echo "$_file" | sed 's/^lib\///')"
+		    _file_install_path="$CFG_LIBDIR/$_f"
+		fi
 
-	    if echo "$_file" | grep "^share/man/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^share\/man\///')"
-		_file_install_path="$CFG_MANDIR/$_f"
+		if echo "$_file" | grep "^share/man/" > /dev/null
+		then
+		    local _f="$(echo "$_file" | sed 's/^share\/man\///')"
+		    _file_install_path="$CFG_MANDIR/$_f"
+		fi
 	    fi
 
 	    # Make sure there's a directory for it
@@ -794,6 +796,7 @@ valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 opt verify 1 "obsolete"
 flag verbose "run with verbose output"
+opt rewrite-paths 1 "rewrite install paths for libdir & mandir"
 
 if [ $HELP -eq 1 ]
 then
