@@ -11,6 +11,12 @@
 
 set -u
 
+if [ -x /bin/echo ]; then
+    ECHO='/bin/echo'
+else
+    ECHO='echo'
+fi
+
 msg() {
     echo "gen-install-script: ${1-}"
 }
@@ -253,14 +259,14 @@ success_message=`echo "$CFG_SUCCESS_MESSAGE" | sed "s/-/ /g"`
 script_template=`cat "$src_dir/install-template.sh"`
 
 # Using /bin/echo because under sh emulation dash *seems* to escape \n, which screws up the template
-script=`/bin/echo "$script_template"`
-script=`/bin/echo "$script" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/\"$product_name\"/"`
-script=`/bin/echo "$script" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/$CFG_REL_MANIFEST_DIR/"`
-script=`/bin/echo "$script" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"$success_message\"/"`
-script=`/bin/echo "$script" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"$CFG_LEGACY_MANIFEST_DIRS\"/"`
-script=`/bin/echo "$script" | sed "s/%%TEMPLATE_RUST_INSTALLER_VERSION%%/\"$rust_installer_version\"/"`
+script=`$ECHO "$script_template"`
+script=`$ECHO "$script" | sed "s/%%TEMPLATE_PRODUCT_NAME%%/\"$product_name\"/"`
+script=`$ECHO "$script" | sed "s/%%TEMPLATE_REL_MANIFEST_DIR%%/$CFG_REL_MANIFEST_DIR/"`
+script=`$ECHO "$script" | sed "s/%%TEMPLATE_SUCCESS_MESSAGE%%/\"$success_message\"/"`
+script=`$ECHO "$script" | sed "s/%%TEMPLATE_LEGACY_MANIFEST_DIRS%%/\"$CFG_LEGACY_MANIFEST_DIRS\"/"`
+script=`$ECHO "$script" | sed "s/%%TEMPLATE_RUST_INSTALLER_VERSION%%/\"$rust_installer_version\"/"`
 
-/bin/echo "$script" > "$CFG_OUTPUT_SCRIPT"
+$ECHO "$script" > "$CFG_OUTPUT_SCRIPT"
 need_ok "couldn't write script"
 chmod u+x "$CFG_OUTPUT_SCRIPT"
 need_ok "couldn't chmod script"

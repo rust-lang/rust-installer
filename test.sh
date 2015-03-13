@@ -2,6 +2,12 @@
 
 set -e -u
 
+if [ -x /bin/echo ]; then
+    ECHO='/bin/echo'
+else
+    ECHO='echo'
+fi
+
 S="$(cd $(dirname $0) && pwd)"
 
 TEST_DIR="$S/test"
@@ -57,7 +63,7 @@ try() {
     if [ $? -ne 0 ]; then
 	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
@@ -67,7 +73,7 @@ try() {
 	    echo \$ "$_cmd"
 	fi
 	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
-	    /bin/echo "$_output"
+	    $ECHO "$_output"
 	fi
     fi
     set -e
@@ -80,7 +86,7 @@ expect_fail() {
     if [ $? -eq 0 ]; then
 	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
@@ -90,7 +96,7 @@ expect_fail() {
 	    echo \$ "$_cmd"
 	fi
 	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
-	    /bin/echo "$_output"
+	    $ECHO "$_output"
 	fi
     fi
     set -e
@@ -105,14 +111,14 @@ expect_output_ok() {
     if [ $? -ne 0 ]; then
 	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
 	exit 1
     elif ! echo "$_output" | grep -q "$_expected"; then
 	echo \$ "$_cmd"
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "missing expected output '$_expected'"
 	echo
@@ -125,7 +131,7 @@ expect_output_ok() {
 	    echo \$ "$_cmd"
 	fi
 	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
-	    /bin/echo "$_output"
+	    $ECHO "$_output"
 	fi
     fi
     set -e
@@ -140,14 +146,14 @@ expect_output_fail() {
     if [ $? -eq 0 ]; then
 	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
 	exit 1
     elif ! echo "$_output" | grep -q "$_expected"; then
 	echo \$ "$_cmd"
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "missing expected output '$_expected'"
 	echo
@@ -160,7 +166,7 @@ expect_output_fail() {
 	    echo \$ "$_cmd"
 	fi
 	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
-	    /bin/echo "$_output"
+	    $ECHO "$_output"
 	fi
     fi
     set -e
@@ -175,14 +181,14 @@ expect_not_output_ok() {
     if [ $? -ne 0 ]; then
 	echo \$ "$_cmd"
 	# Using /bin/echo to avoid escaping
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "TEST FAILED!"
 	echo
 	exit 1
     elif echo "$_output" | grep -q "$_expected"; then
 	echo \$ "$_cmd"
-	/bin/echo "$_output"
+	$ECHO "$_output"
 	echo
 	echo "unexpected output '$_expected'"
 	echo
@@ -195,7 +201,7 @@ expect_not_output_ok() {
 	    echo \$ "$_cmd"
 	fi
 	if [ -n "${VERBOSE-}" -o -n "${VERBOSE_OUTPUT-}" ]; then
-	    /bin/echo "$_output"
+	    $ECHO "$_output"
 	fi
     fi
     set -e

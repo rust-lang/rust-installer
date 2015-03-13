@@ -11,6 +11,12 @@
 
 set -u
 
+if [ -x /bin/echo ]; then
+    ECHO='/bin/echo'
+else
+    ECHO='echo'
+fi
+
 msg() {
     echo "gen-installer: ${1-}"
 }
@@ -283,7 +289,7 @@ done
 
 # Add 'file:' installation directives.
 # The -n prevents adding a blank file: if the manifest is empty
-manifest=`/bin/echo -n "$manifest" | sed s/^/file:/`
+manifest=`$ECHO -n "$manifest" | sed s/^/file:/`
 
 # Add 'dir:' directives
 for bulk_dir in $bulk_dirs; do
