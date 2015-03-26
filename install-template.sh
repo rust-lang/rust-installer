@@ -223,7 +223,7 @@ opt() {
             fi
         done
     else
-        if [ ! -z "$META" ]
+        if [ ! -z "${META-}" ]
         then
             op="$op=<$META>"
         fi
@@ -251,7 +251,7 @@ flag() {
             fi
         done
     else
-        if [ ! -z "$META" ]
+        if [ ! -z "${META-}" ]
         then
             op="$op=<$META>"
         fi
@@ -782,8 +782,9 @@ valopt destdir "" "set installation root"
 valopt prefix "/usr/local" "set installation prefix"
 
 # Avoid prepending an extra / to the prefix path if there's no destdir
-if [ -z "$CFG_DESTDIR" ]; then
-    CFG_DESTDIR_PREFIX="$CFG_PREFIX"
+# NB: CFG vars here are undefined when passing --help
+if [ -z "${CFG_DESTDIR-}" ]; then
+    CFG_DESTDIR_PREFIX="${CFG_PREFIX-}"
 else
     CFG_DESTDIR_PREFIX="$CFG_DESTDIR/$CFG_PREFIX"
 fi
