@@ -1333,6 +1333,16 @@ leave_log_after_failure() {
 }
 runtest leave_log_after_failure
 
+# https://github.com/rust-lang/rust-installer/issues/22
+help() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --help
+}
+runtest help
+
 # TODO: mandir/libdir/bindir, etc.
 
 echo
