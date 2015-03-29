@@ -186,7 +186,7 @@ valopt() {
         then
             default="<none>"
         fi
-        op="${default}=[${default}]"
+        op="${op}=[${default}]"
         printf "    --%-30s %s\n" "$op" "$doc"
     fi
 }
