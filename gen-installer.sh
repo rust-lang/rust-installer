@@ -256,7 +256,9 @@ fi
 step_msg "validating arguments"
 validate_opt
 
-src_dir="$(cd $(dirname "$0") && pwd)"
+# Redirect output of cd command, as it can display the new path when
+# CDPATH is set in bash (which is used for /bin/sh, at least on OS X).
+src_dir="$(cd $(dirname "$0") > /dev/null && pwd)"
 
 rust_installer_version=`cat "$src_dir/rust-installer-version"`
 
