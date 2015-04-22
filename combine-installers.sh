@@ -198,6 +198,14 @@ validate_opt () {
     done
 }
 
+# Prints the absolute path of a directory to stdout
+abs_path() {
+    local path="$1"
+    # Unset CDPATH because it causes havok: it makes the destination unpredictable
+    # and triggers 'cd' to print the path to stdout.
+    (unset CDPATH && cd "$path" && pwd)
+}
+
 msg "looking for programs"
 msg
 
@@ -247,7 +255,7 @@ fi
 step_msg "validating arguments"
 validate_opt
 
-src_dir="$(cd $(dirname "$0") && pwd)"
+src_dir="$(abs_path $(dirname "$0"))"
 
 rust_installer_version=`cat "$src_dir/rust-installer-version"`
 

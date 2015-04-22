@@ -8,7 +8,15 @@ else
     ECHO='echo'
 fi
 
-S="$(cd $(dirname $0) && pwd)"
+# Prints the absolute path of a directory to stdout
+abs_path() {
+    local path="$1"
+    # Unset CDPATH because it causes havok: it makes the destination unpredictable
+    # and triggers 'cd' to print the path to stdout.
+    (unset CDPATH && cd "$path" && pwd)
+}
+
+S="$(abs_path $(dirname $0))"
 
 TEST_DIR="$S/test"
 TMP_DIR="$S/tmp"
@@ -1343,7 +1351,23 @@ help() {
 }
 runtest help
 
-# TODO: mandir/libdir/bindir, etc.
+# https://github.com/rust-lang/rust-installer/issues/31
+CDPATH_does_not_destroy_things() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    cd "$WORK_DIR" || exit 1
+    export CDPATH="../$(basename $WORK_DIR)/foo"
+    try sh "package/install.sh" --prefix="$PREFIX_DIR"
+    cd "$S" || exit 1
+    cd "$PREFIX_DIR" || exit 1
+    export CDPATH="../$(basename $PREFIX_DIR)"
+    try sh "lib/packagelib/uninstall.sh"
+    cd "$S" || exit 1
+    unset CDPATH
+}
+runtest CDPATH_does_not_destroy_things
 
 echo
 echo "TOTAL SUCCESS!"
