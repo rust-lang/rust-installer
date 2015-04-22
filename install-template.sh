@@ -314,8 +314,9 @@ absolutify() {
 abs_path() {
     local path="$1"
     # Unset CDPATH because it causes havok: it makes the destination unpredictable
-    # and triggers 'cd' to print the path to stdout.
-    (unset CDPATH && cd "$path" && pwd)
+    # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
+    # for good measure.
+    (unset CDPATH && cd "$path" > /dev/null && pwd)
 }
 
 get_host_triple() {
