@@ -336,9 +336,13 @@ get_host_triple() {
             _ostype=unknown-dragonfly
             ;;
 
-        OpenBSD)
+	Bitrig)
+            _ostype=unknown-bitrig
+            ;;
+
+	OpenBSD)
             _ostype=unknown-openbsd
-	    ;;
+            ;;
 
 	Darwin)
             _ostype=apple-darwin
