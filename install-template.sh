@@ -340,6 +340,10 @@ get_host_triple() {
             _ostype=unknown-bitrig
             ;;
 
+	NetBSD)
+            _ostype=unknown-netbsd
+            ;;
+
 	OpenBSD)
             _ostype=unknown-openbsd
             ;;
