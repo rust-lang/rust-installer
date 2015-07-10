@@ -566,6 +566,8 @@ uninstall_components() {
 		verbose_msg "removing manifest directory $_md"
 		run rm -r "$_md"
 		want_ok "failed to remove $_md"
+
+		maybe_unconfigure_ld
 	    fi
 	fi
 
@@ -696,12 +698,32 @@ install_components() {
     done
 }
 
-maybe_run_ldconfig() {
+maybe_configure_ld() {
+    local _abs_libdir="$1"
+
     get_host_triple
     local _ostype="$RETVAL"
     assert_nz "$_ostype"  "ostype"
 
     if [ "$_ostype" = "unknown-linux-gnu" -a ! -n "${CFG_DISABLE_LDCONFIG-}" ]; then
+
+	# Fedora-based systems do not configure the dynamic linker to look
+	# /usr/local/lib, which is our default installation directory. To
+	# make things just work, try to put that directory in
+	# /etc/ld.so.conf.d/rust-installer-v1 so ldconfig picks it up.
+	# Issue #30.
+	#
+	# This will get rm'd when the last component is uninstalled in
+	# maybe_unconfigure_ld.
+	if [ "$_abs_libdir" = "/usr/local/lib" -a -d "/etc/ld.so.conf.d" ]; then
+	    echo "$_abs_libdir" > "/etc/ld.so.conf.d/rust-installer-v1-$TEMPLATE_REL_MANIFEST_DIR.conf"
+	    if [ $? -ne 0 ]; then
+		# This shouldn't happen if we've gotten this far
+		# installing to /usr/local
+		warn "failed to update /etc/ld.so.conf.d. this is unexpected"
+	    fi
+	fi
+
 	verbose_msg "running ldconfig"
 	if [ -n "${CFG_VERBOSE-}" ]; then
 	    ldconfig
@@ -713,6 +735,19 @@ maybe_run_ldconfig() {
             warn "failed to run ldconfig. this may happen when not installing as root. run with --verbose to see the error"
 	fi
     fi
+}
+
+maybe_unconfigure_ld() {
+    get_host_triple
+    local _ostype="$RETVAL"
+    assert_nz "$_ostype"  "ostype"
+
+    if [ "$_ostype" != "unknown-linux-gnu" ]; then
+	return 0
+    fi
+
+    rm "/etc/ld.so.conf.d/rust-installer-v1-$TEMPLATE_REL_MANIFEST_DIR.conf" 2> /dev/null
+    # Above may fail since that file may not have been created on install
 }
 
 # Doing our own 'install'-like backup that is consistent across platforms
@@ -967,8 +1002,8 @@ install_uninstaller "$src_dir" "$src_basename" "$abs_libdir"
 # Install each component
 install_components "$src_dir" "$abs_libdir" "$dest_prefix" "$components"
 
-# Run ldconfig to make dynamic libraries available to the linker
-maybe_run_ldconfig
+# Make dynamic libraries available to the linker
+maybe_configure_ld "$abs_libdir"
 
 echo
 echo "    $TEMPLATE_SUCCESS_MESSAGE"
