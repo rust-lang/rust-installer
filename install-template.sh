@@ -360,28 +360,12 @@ get_host_triple() {
             _ostype=pc-windows-gnu
             ;;
 
-	# Vista 32 bit
-	CYGWIN_NT-6.0)
-            _ostype=pc-windows-gnu
-            ;;
-
-	# Vista 64 bit
-	CYGWIN_NT-6.0-WOW64)
-            _ostype=pc-windows-gnu
-            ;;
-
-	# Win 7 32 bit
-	CYGWIN_NT-6.1)
-            _ostype=pc-windows-gnu
-            ;;
-
-	# Win 7 64 bit
-	CYGWIN_NT-6.1-WOW64)
+	CYGWIN*)
             _ostype=pc-windows-gnu
             ;;
 
 	*)
-	    err "unknown value from uname -s: $uname_value"
+	    err "unknown value from uname -s: $_uname_value"
 	    ;;
     esac
 
