@@ -381,7 +381,7 @@ get_host_triple() {
             ;;
 
 	*)
-	    err "unknown value from uname -s: $uname_value"
+	    err "unknown value from uname -s: $_uname_value"
 	    ;;
     esac
 
