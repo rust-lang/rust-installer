@@ -291,7 +291,7 @@ for bulk_dir in $bulk_dirs; do
 done
 
 # Add 'file:' installation directives, skipping empty lines.
-manifest=`echo "$manifest" | sed /^$/d | sed s/^./file:/`
+manifest=`echo "$manifest" | sed /^$/d | sed s/^/file:/`
 
 # Add 'dir:' directives
 for bulk_dir in $bulk_dirs; do
