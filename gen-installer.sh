@@ -9,13 +9,7 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-set -u
-
-if [ -x /bin/echo ]; then
-    ECHO='/bin/echo'
-else
-    ECHO='echo'
-fi
+set -ue
 
 msg() {
     echo "gen-installer: ${1-}"
@@ -296,9 +290,8 @@ for bulk_dir in $bulk_dirs; do
     manifest=`echo "$manifest" | sed /^$bulk_dir/d`
 done
 
-# Add 'file:' installation directives.
-# The -n prevents adding a blank file: if the manifest is empty
-manifest=`$ECHO -n "$manifest" | sed s/^/file:/`
+# Add 'file:' installation directives, skipping empty lines.
+manifest=`echo "$manifest" | sed /^$/d | sed s/^/file:/`
 
 # Add 'dir:' directives
 for bulk_dir in $bulk_dirs; do
