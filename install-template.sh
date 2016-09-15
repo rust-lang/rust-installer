@@ -624,6 +624,12 @@ install_components() {
 		_file_install_path="$CFG_MANDIR/$_f"
 	    fi
 
+	    if echo "$_file" | grep "^share/doc/" > /dev/null
+	    then
+		local _f="$(echo "$_file" | sed 's/^share\/doc\/rust\///')"
+		_file_install_path="$CFG_DOCDIR/$_f"
+	    fi
+
 	    # Make sure there's a directory for it
 	    make_dir_recursive "$(dirname "$_file_install_path")"
 	    critical_need_ok "directory creation failed"
@@ -834,6 +840,7 @@ valopt components "" "comma-separated list of components to install"
 flag list-components "list available components"
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
+valopt docdir "$CFG_DESTDIR_PREFIX/share/doc/rust" "install documentation in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 opt verify 1 "obsolete"
 flag verbose "run with verbose output"
