@@ -624,11 +624,24 @@ install_components() {
 		_file_install_path="$CFG_MANDIR/$_f"
 	    fi
 
-	    if echo "$_file" | grep "^share/doc/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^share\/doc\/[^/]*\///')"
-		_file_install_path="$CFG_DOCDIR/$_f"
-	    fi
+            # HACK: Try to support overriding --docdir.  Paths with the form
+            # "share/doc/$product/" can be redirected to a single --docdir
+            # path. If the following detects that --docdir has been specified
+            # then it will replace everything preceeding the "$product" path
+            # component. The problem here is that the combined rust installer
+            # contains two "products": rust and cargo; so the contents of those
+            # directories will both be dumped into the same directory; and the
+            # contents of those directories are _not_ disjoint. Since this feature
+            # is almost entirely to support 'make install' anyway I don't expect
+            # this problem to be a big deal in practice.
+            if [ "$CFG_DOCDIR" != "<default>" ]
+            then
+	        if echo "$_file" | grep "^share/doc/" > /dev/null
+	        then
+		    local _f="$(echo "$_file" | sed 's/^share\/doc\/[^/]*\///')"
+		    _file_install_path="$CFG_DOCDIR/$_f"
+	        fi
+            fi
 
 	    # Make sure there's a directory for it
 	    make_dir_recursive "$(dirname "$_file_install_path")"
@@ -840,7 +853,9 @@ valopt components "" "comma-separated list of components to install"
 flag list-components "list available components"
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
-valopt docdir "$CFG_DESTDIR_PREFIX/share/doc/rust" "install documentation in PATH"
+# NB See the docdir handling in install_components for an explanation of this
+# weird <default> string
+valopt docdir "\<default\>" "install documentation in PATH"
 opt ldconfig 1 "run ldconfig after installation (Linux only)"
 opt verify 1 "obsolete"
 flag verbose "run with verbose output"
