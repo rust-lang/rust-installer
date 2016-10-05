@@ -1370,6 +1370,56 @@ CDPATH_does_not_destroy_things() {
 }
 runtest CDPATH_does_not_destroy_things
 
+docdir_default() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image-docdir1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR"
+    try test -e "$PREFIX_DIR/share/doc/rust/README"
+    try test -e "$PREFIX_DIR/share/doc/rust/rustdocs.txt"
+}
+runtest docdir_default
+
+docdir() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image-docdir1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR"
+    try mkdir "$WORK_DIR/docdir"
+    try "$WORK_DIR/package/install.sh" --prefix="$PREFIX_DIR" --docdir="$WORK_DIR/docdir"
+    try test -e "$WORK_DIR/docdir/README"
+    try test -e "$WORK_DIR/docdir/rustdocs.txt"
+}
+runtest docdir
+
+docdir_combined() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image-docdir1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc"
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image-docdir2" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+        --package-name="cargo" \
+        --component-name="cargo"
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz"
+    try mkdir "$WORK_DIR/docdir"
+    try "$WORK_DIR/rust/install.sh" --prefix="$PREFIX_DIR" --docdir="$WORK_DIR/docdir"
+    try test -e "$WORK_DIR/docdir/README"
+    try test -e "$WORK_DIR/docdir/rustdocs.txt"
+    try test -e "$WORK_DIR/docdir/README"
+    try test -e "$WORK_DIR/docdir/cargodocs.txt"
+}
+runtest docdir_combined
+
 echo
 echo "TOTAL SUCCESS!"
 echo
