@@ -327,7 +327,11 @@ if [ -n "$CFG_NON_INSTALLED_OVERLAY" ]; then
 fi
 
 # Generate the install script
-"$src_dir/gen-install-script.sh" \
+if [ -z "$SHELL" ]; then
+	SHELL=/bin/sh
+fi
+
+"$SHELL" "$src_dir/gen-install-script.sh" \
     --product-name="$CFG_PRODUCT_NAME" \
     --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
     --success-message="$CFG_SUCCESS_MESSAGE" \
