@@ -210,7 +210,6 @@ abs_path() {
 msg "looking for programs"
 msg
 
-need_cmd tar
 need_cmd cp
 need_cmd rm
 need_cmd mkdir
@@ -339,9 +338,7 @@ need_ok "failed to generate install script"
 mkdir -p "$CFG_OUTPUT_DIR"
 need_ok "couldn't create output dir"
 
-rm -Rf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz"
-need_ok "couldn't delete old tarball"
-
-# Make a tarball
-tar -czf "$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME.tar.gz" -C "$CFG_WORK_DIR" "$CFG_PACKAGE_NAME"
-need_ok "failed to tar"
+"$src_dir/make-tarballs.sh" \
+    --work-dir="$CFG_WORK_DIR" \
+    --input="$CFG_PACKAGE_NAME" \
+    --output="$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME"
