@@ -1,2 +1,7 @@
+addons:
+  apt:
+    packages:
+    - p7zip-full
+
 script:
   - ./test.sh
