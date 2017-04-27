@@ -282,6 +282,7 @@ tarball_with_package_name() {
 	--package-name=rustc-nightly
     try "$WORK_DIR/rustc-nightly/install.sh" --prefix="$PREFIX_DIR"
     try test -e "$OUT_DIR/rustc-nightly.tar.gz"
+    try test -e "$OUT_DIR/rustc-nightly.tar.xz"
 }
 runtest tarball_with_package_name
 

@@ -9,10 +9,10 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-set -u
+set -ue
 
 msg() {
-    echo "combine-installers: ${1-}"
+    echo "make-tarballs: ${1-}"
 }
 
 step_msg() {
@@ -22,11 +22,11 @@ step_msg() {
 }
 
 warn() {
-    echo "combine-installers: WARNING: $1" >&2
+    echo "make-tarballs: WARNING: $1" >&2
 }
 
 err() {
-    echo "combine-installers: error: $1" >&2
+    echo "make-tarballs: error: $1" >&2
     exit 1
 }
 
@@ -51,9 +51,9 @@ putvar() {
     eval tlen=\${#$1}
     if [ $tlen -gt 35 ]
     then
-        printf "combine-installers: %-20s := %.35s ...\n" $1 "$t"
+        printf "make-tarballs: %-20s := %.35s ...\n" $1 "$t"
     else
-        printf "combine-installers: %-20s := %s %s\n" $1 "$t"
+        printf "make-tarballs: %-20s := %s %s\n" $1 "$t"
     fi
 }
 
@@ -84,7 +84,7 @@ valopt() {
         then
             default="<none>"
         fi
-        op="${default}=[${default}]"
+        op="${op}=[${default}]"
         printf "    --%-30s %s\n" "$op" "$doc"
     fi
 }
@@ -211,11 +211,15 @@ msg "looking for programs"
 msg
 
 need_cmd tar
-need_cmd cp
 need_cmd rm
 need_cmd mkdir
 need_cmd echo
 need_cmd tr
+need_cmd find
+need_cmd rev
+need_cmd sort
+need_cmd gzip
+need_cmd 7z
 
 CFG_ARGS="$@"
 
@@ -237,15 +241,9 @@ OPTIONS=""
 BOOL_OPTIONS=""
 VAL_OPTIONS=""
 
-valopt product-name "Product" "The name of the product, for display"
-valopt package-name "package" "The name of the package, tarball"
-valopt rel-manifest-dir "${CFG_PACKAGE_NAME}lib" "The directory under lib/ where the manifest lives"
-valopt success-message "Installed." "The string to print after successful installation"
-valopt legacy-manifest-dirs "" "Places to look for legacy manifests to uninstall"
-valopt input-tarballs "" "Installers to combine"
-valopt non-installed-overlay "" "Directory containing files that should not be installed"
-valopt work-dir "./workdir" "The directory to do temporary work and put the final image"
-valopt output-dir "./dist" "The location to put the final tarball"
+valopt input "package" "The input folder to be compressed"
+valopt output "./dist" "The prefix of the tarballs"
+valopt work-dir "./workdir" "The folder in which the input is to be found"
 
 if [ $HELP -eq 1 ]
 then
@@ -256,79 +254,25 @@ fi
 step_msg "validating arguments"
 validate_opt
 
-src_dir="$(abs_path $(dirname "$0"))"
+rm -Rf "$CFG_OUTPUT.tar.gz"
+need_ok "couldn't delete old gz tarball"
 
-rust_installer_version=`cat "$src_dir/rust-installer-version"`
+rm -Rf "$CFG_OUTPUT.tar.xz"
+need_ok "couldn't delete old xz tarball"
 
-# Create the work directory for the new installer
-mkdir -p "$CFG_WORK_DIR"
-need_ok "couldn't create work dir"
+# Make a tarball
+cd "$CFG_WORK_DIR"
 
-rm -Rf "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
-need_ok "couldn't delete work package dir"
+# Sort files by their suffix, to group files with the same name from
+# different locations (likely identical) and files with the same
+# extension (likely containing similar data).
+find "$CFG_INPUT" \( -type d -empty \) -or \( -not -type d \) \
+    | rev | sort | rev | tar -cf "$CFG_OUTPUT.tar" -T -
+need_ok "failed to tar"
 
-mkdir -p "$CFG_WORK_DIR/$CFG_PACKAGE_NAME"
-need_ok "couldn't create work package dir"
+# xz -9 -T2 --keep "$CFG_OUTPUT.tar"
+7z a -bd -txz -mx=9 -mmt=off "$CFG_OUTPUT.tar.xz" "$CFG_OUTPUT.tar"
+need_ok "failed to xz"
 
-input_tarballs=`echo "$CFG_INPUT_TARBALLS" | sed 's/,/ /g'`
-
-# Merge each installer into the work directory of the new installer
-for input_tarball in $input_tarballs; do
-
-    # Extract the input tarballs
-    tar xzf $input_tarball -C "$CFG_WORK_DIR"
-    need_ok "failed to extract tarball"
-
-    # Verify the version number
-    pkg_name=`echo "$input_tarball" | sed s/\.tar\.gz//g`
-    pkg_name=`basename $pkg_name`
-    version=`cat "$CFG_WORK_DIR/$pkg_name/rust-installer-version"`
-    if [ "$rust_installer_version" != "$version" ]; then
-	err "incorrect installer version in $input_tarball"
-    fi
-
-    # Copy components to new combined installer
-    components=`cat "$CFG_WORK_DIR/$pkg_name/components"`
-    for component in $components; do
-
-	# All we need to do is copy the component directory
-	cp -R "$CFG_WORK_DIR/$pkg_name/$component" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$component"
-	need_ok "failed to copy component $component"
-
-	# Merge the component name
-	echo "$component" >> "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/components"
-	need_ok "failed to merge component $component"
-    done
-done
-
-# Write the version number
-echo "$rust_installer_version" > "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/rust-installer-version"
-
-# Copy the overlay
-if [ -n "$CFG_NON_INSTALLED_OVERLAY" ]; then
-    overlay_files=`(cd "$CFG_NON_INSTALLED_OVERLAY" && find . -type f)`
-    for f in $overlay_files; do
-	if [ -e "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f" ]; then err "overlay $f exists"; fi
-
-	cp "$CFG_NON_INSTALLED_OVERLAY/$f" "$CFG_WORK_DIR/$CFG_PACKAGE_NAME/$f"
-	need_ok "failed to copy overlay $f"
-    done
-fi
-
-# Generate the install script
-"$src_dir/gen-install-script.sh" \
-    --product-name="$CFG_PRODUCT_NAME" \
-    --rel-manifest-dir="$CFG_REL_MANIFEST_DIR" \
-    --success-message="$CFG_SUCCESS_MESSAGE" \
-    --legacy-manifest-dirs="$CFG_LEGACY_MANIFEST_DIRS" \
-    --output-script="$CFG_WORK_DIR/$CFG_PACKAGE_NAME/install.sh"
-
-need_ok "failed to generate install script"
-
-mkdir -p "$CFG_OUTPUT_DIR"
-need_ok "couldn't create output dir"
-
-"$src_dir/make-tarballs.sh" \
-    --work-dir="$CFG_WORK_DIR" \
-    --input="$CFG_PACKAGE_NAME" \
-    --output="$CFG_OUTPUT_DIR/$CFG_PACKAGE_NAME"
+gzip "$CFG_OUTPUT.tar"
+need_ok "failed to gzip"
