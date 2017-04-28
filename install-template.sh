@@ -615,6 +615,12 @@ install_components() {
 	    # Decide the destination of the file
 	    local _file_install_path="$_dest_prefix/$_file"
 
+	    if echo "$_file" | grep "^etc/" > /dev/null
+	    then
+		local _f="$(echo "$_file" | sed 's/^etc\///')"
+		_file_install_path="$CFG_SYSCONFDIR/$_f"
+	    fi
+
 	    if echo "$_file" | grep "^bin/" > /dev/null
 	    then
 		local _f="$(echo "$_file" | sed 's/^bin\///')"
@@ -860,6 +866,7 @@ fi
 valopt without "" "comma-separated list of components to not install"
 valopt components "" "comma-separated list of components to install"
 flag list-components "list available components"
+valopt sysconfdir "/etc" "install system configuration files"
 valopt bindir "$CFG_DESTDIR_PREFIX/bin" "install binaries"
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
