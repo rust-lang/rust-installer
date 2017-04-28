@@ -615,6 +615,12 @@ install_components() {
 	    # Decide the destination of the file
 	    local _file_install_path="$_dest_prefix/$_file"
 
+	    if echo "$_file" | grep "^bin/" > /dev/null
+	    then
+		local _f="$(echo "$_file" | sed 's/^bin\///')"
+		_file_install_path="$CFG_BINDIR/$_f"
+	    fi
+
 	    if echo "$_file" | grep "^lib/" > /dev/null
 	    then
 		local _f="$(echo "$_file" | sed 's/^lib\///')"
@@ -854,6 +860,7 @@ fi
 valopt without "" "comma-separated list of components to not install"
 valopt components "" "comma-separated list of components to install"
 flag list-components "list available components"
+valopt bindir "$CFG_DESTDIR_PREFIX/bin" "install binaries"
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
 valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
 # NB See the docdir handling in install_components for an explanation of this
