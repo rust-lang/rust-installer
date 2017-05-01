@@ -219,7 +219,12 @@ need_cmd find
 need_cmd rev
 need_cmd sort
 need_cmd gzip
-need_cmd 7z
+
+# need_cmd xz || need_cmd 7z
+if command -v xz >/dev/null 2>&1
+then msg "found xz"
+else need_cmd 7z
+fi
 
 CFG_ARGS="$@"
 
@@ -270,8 +275,10 @@ find "$CFG_INPUT" \( -type d -empty \) -or \( -not -type d \) \
     | rev | sort | rev | tar -cf "$CFG_OUTPUT.tar" -T -
 need_ok "failed to tar"
 
-# xz -9 -T2 --keep "$CFG_OUTPUT.tar"
-7z a -bd -txz -mx=9 -mmt=off "$CFG_OUTPUT.tar.xz" "$CFG_OUTPUT.tar"
+if command -v xz >/dev/null 2>&1
+then xz -9 --keep "$CFG_OUTPUT.tar"
+else 7z a -bd -txz -mx=9 -mmt=off "$CFG_OUTPUT.tar.xz" "$CFG_OUTPUT.tar"
+fi
 need_ok "failed to xz"
 
 gzip "$CFG_OUTPUT.tar"
