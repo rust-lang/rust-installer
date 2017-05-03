@@ -12,6 +12,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use super::Scripter;
 
 #[derive(Debug)]
 pub struct Generator {
@@ -158,19 +159,15 @@ impl Generator {
             cp_r(self.non_installed_overlay.as_ref(), &package_dir)?;
         }
 
-        // Generate the install script (TODO: run this in-process!)
+        // Generate the install script
         let output_script = package_dir.join("install.sh");
-        let status = Command::new(src_dir.join("gen-install-script.sh"))
-            .arg(format!("--product-name={}", self.product_name))
-            .arg(format!("--rel-manifest-dir={}", self.rel_manifest_dir))
-            .arg(format!("--success-message={}", self.success_message))
-            .arg(format!("--legacy-manifest-dirs={}", self.legacy_manifest_dirs))
-            .arg(format!("--output-script={}", output_script.display()))
-            .status()?;
-        if !status.success() {
-            let msg = format!("failed to generate install script: {}", status);
-            return Err(io::Error::new(io::ErrorKind::Other, msg));
-        }
+        let mut scripter = Scripter::default();
+        scripter.product_name(self.product_name)
+            .rel_manifest_dir(self.rel_manifest_dir)
+            .success_message(self.success_message)
+            .legacy_manifest_dirs(self.legacy_manifest_dirs)
+            .output_script(output_script.to_str().unwrap().into());
+        scripter.run()?;
 
         // Make the tarballs (TODO: run this in-process!)
         fs::create_dir_all(&self.output_dir)?;

@@ -3,7 +3,7 @@ extern crate clap;
 extern crate installer;
 
 use clap::{App, ArgMatches};
-use installer::Generator;
+use installer::*;
 
 fn main() {
     let yaml = load_yaml!("main.yml");
@@ -11,6 +11,7 @@ fn main() {
 
     match matches.subcommand() {
         ("generate", Some(matches)) => generate(matches),
+        ("script", Some(matches)) => script(matches),
         _ => unreachable!(),
     }
 }
@@ -53,6 +54,30 @@ fn generate(matches: &ArgMatches) {
 
     if let Err(e) = gen.run() {
         println!("failed to generate installer: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn script(matches: &ArgMatches) {
+    let mut scr = Scripter::default();
+    matches
+        .value_of("product-name")
+        .map(|s| scr.product_name(s.into()));
+    matches
+        .value_of("rel-manifest-dir")
+        .map(|s| scr.rel_manifest_dir(s.into()));
+    matches
+        .value_of("success-message")
+        .map(|s| scr.success_message(s.into()));
+    matches
+        .value_of("legacy-manifest-dirs")
+        .map(|s| scr.legacy_manifest_dirs(s.into()));
+    matches
+        .value_of("output-script")
+        .map(|s| scr.output_script(s.into()));
+
+    if let Err(e) = scr.run() {
+        println!("failed to generate installation script: {}", e);
         std::process::exit(1);
     }
 }

@@ -9,8 +9,10 @@
 // except according to those terms.
 
 mod generator;
+mod scripter;
 
 pub use generator::Generator;
+pub use scripter::Scripter;
 
 /// The base source directory
 /// (FIXME: statically compiling this means we can't ship installer binaries!)

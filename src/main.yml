@@ -3,6 +3,7 @@ settings:
   - ArgRequiredElseHelp
 subcommands:
   - generate:
+      about: Generate a complete installer tarball
       args:
         - product-name:
             help: The name of the product, for display
@@ -59,4 +60,32 @@ subcommands:
             long: output-dir
             takes_value: true
             value_name: DIR
+  - script:
+      about: Generate an installation script
+      args:
+        - product-name:
+            help: The name of the product, for display
+            long: product-name
+            takes_value: true
+            value_name: NAME
+        - rel-manifest-dir:
+            help: The directory under lib/ where the manifest lives
+            long: rel-manifest-dir
+            takes_value: true
+            value_name: DIR
+        - success-message:
+            help: The string to print after successful installation
+            long: success-message
+            takes_value: true
+            value_name: MESSAGE
+        - legacy-manifest-dirs:
+            help: Places to look for legacy manifests to uninstall
+            long: legacy-manifest-dirs
+            takes_value: true
+            value_name: DIRS
+        - output-script:
+            help: The name of the output script
+            long: output-script
+            takes_value: true
+            value_name: FILE
 
