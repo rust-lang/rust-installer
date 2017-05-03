@@ -12,13 +12,11 @@ extern crate walkdir;
 
 mod generator;
 mod scripter;
+mod tarballer;
 
 pub use generator::Generator;
 pub use scripter::Scripter;
-
-/// The base source directory
-/// (FIXME: statically compiling this means we can't ship installer binaries!)
-const SOURCE_DIRECTORY: &'static str = env!("CARGO_MANIFEST_DIR");
+pub use tarballer::Tarballer;
 
 /// The installer version, output only to be used by combine-installers.sh.
 /// (should match `SOURCE_DIRECTORY/rust_installer_version`)

@@ -11,10 +11,10 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use std::process::Command;
 use walkdir::WalkDir;
 
 use super::Scripter;
+use super::Tarballer;
 
 #[derive(Debug)]
 pub struct Generator {
@@ -118,9 +118,6 @@ impl Generator {
 
     /// Generate the actual installer tarball
     pub fn run(self) -> io::Result<()> {
-        let src_dir = Path::new(::SOURCE_DIRECTORY);
-        fs::read_dir(&src_dir)?;
-
         fs::create_dir_all(&self.work_dir)?;
 
         let package_dir = Path::new(&self.work_dir).join(&self.package_name);
@@ -158,18 +155,14 @@ impl Generator {
             .output_script(output_script.to_str().unwrap().into());
         scripter.run()?;
 
-        // Make the tarballs (TODO: run this in-process!)
+        // Make the tarballs
         fs::create_dir_all(&self.output_dir)?;
         let output = Path::new(&self.output_dir).join(&self.package_name);
-        let status = Command::new(src_dir.join("make-tarballs.sh"))
-            .arg(format!("--work-dir={}", self.work_dir))
-            .arg(format!("--input={}", self.package_name))
-            .arg(format!("--output={}", output.display()))
-            .status()?;
-        if !status.success() {
-            let msg = format!("failed to make tarballs: {}", status);
-            return Err(io::Error::new(io::ErrorKind::Other, msg));
-        }
+        let mut tarballer = Tarballer::default();
+        tarballer.work_dir(self.work_dir)
+            .input(self.package_name)
+            .output(output.to_str().unwrap().into());
+        tarballer.run()?;
 
         Ok(())
     }

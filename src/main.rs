@@ -12,6 +12,7 @@ fn main() {
     match matches.subcommand() {
         ("generate", Some(matches)) => generate(matches),
         ("script", Some(matches)) => script(matches),
+        ("tarball", Some(matches)) => tarball(matches),
         _ => unreachable!(),
     }
 }
@@ -78,6 +79,24 @@ fn script(matches: &ArgMatches) {
 
     if let Err(e) = scr.run() {
         println!("failed to generate installation script: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn tarball(matches: &ArgMatches) {
+    let mut tar = Tarballer::default();
+    matches
+        .value_of("input")
+        .map(|s| tar.input(s.into()));
+    matches
+        .value_of("output")
+        .map(|s| tar.output(s.into()));
+    matches
+        .value_of("work-dir")
+        .map(|s| tar.work_dir(s.into()));
+
+    if let Err(e) = tar.run() {
+        println!("failed to generate tarballs: {}", e);
         std::process::exit(1);
     }
 }

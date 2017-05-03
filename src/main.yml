@@ -88,4 +88,22 @@ subcommands:
             long: output-script
             takes_value: true
             value_name: FILE
+  - tarball:
+      about: Generate package tarballs
+      args:
+        - input:
+            help: The input folder to be compressed
+            long: input
+            takes_value: true
+            value_name: NAME
+        - output:
+            help: The prefix of the tarballs
+            long: output
+            takes_value: true
+            value_name: PATH
+        - work-dir:
+            help: The folder in which the input is to be found
+            long: work-dir
+            takes_value: true
+            value_name: DIR
 
