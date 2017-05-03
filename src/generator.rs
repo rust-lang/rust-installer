@@ -10,8 +10,10 @@
 
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
+use walkdir::WalkDir;
+
 use super::Scripter;
 
 #[derive(Debug)]
@@ -126,23 +128,10 @@ impl Generator {
             fs::remove_dir_all(&package_dir)?;
         }
 
+        // Copy the image and write the manifest
         let component_dir = package_dir.join(&self.component_name);
         fs::create_dir_all(&component_dir)?;
-        let mut files = cp_r(self.image_dir.as_ref(), &component_dir)?;
-
-        // Filter out files that are covered by bulk dirs.
-        let bulk_dirs: Vec<_> = self.bulk_dirs.split(',').filter(|s| !s.is_empty()).collect();
-        files.retain(|f| !bulk_dirs.iter().any(|d| f.starts_with(d)));
-
-        // Write the manifest
-        let manifest = fs::File::create(component_dir.join("manifest.in"))?;
-        for file in files {
-            writeln!(&manifest, "file:{}", file.display())?;
-        }
-        for dir in bulk_dirs {
-            writeln!(&manifest, "dir:{}", dir)?;
-        }
-        drop(manifest);
+        copy_and_manifest(self.image_dir.as_ref(), &component_dir, &self.bulk_dirs)?;
 
         // Write the component name
         let components = fs::File::create(package_dir.join("components"))?;
@@ -156,7 +145,7 @@ impl Generator {
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
-            cp_r(self.non_installed_overlay.as_ref(), &package_dir)?;
+            copy_recursive(self.non_installed_overlay.as_ref(), &package_dir)?;
         }
 
         // Generate the install script
@@ -187,22 +176,49 @@ impl Generator {
 }
 
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
-/// when this function is called. Returns a list of files written relative to `dst`.
-pub fn cp_r(src: &Path, dst: &Path) -> io::Result<Vec<PathBuf>> {
-    let mut files = vec![];
-    for f in fs::read_dir(src)? {
-        let f = f?;
-        let path = f.path();
-        let name = PathBuf::from(f.file_name());
-        let dst = dst.join(&name);
-        if f.file_type()?.is_dir() {
-            fs::create_dir(&dst)?;
-            let subfiles = cp_r(&path, &dst)?;
-            files.extend(subfiles.into_iter().map(|f| name.join(f)));
+/// when this function is called.
+fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
+    copy_with_callback(src, dst, |_, _| Ok(()))
+}
+
+/// Copies the `src` directory recursively to `dst`, writing `manifest.in` too.
+fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> io::Result<()> {
+    let manifest = fs::File::create(dst.join("manifest.in"))?;
+    let bulk_dirs: Vec<_> = bulk_dirs.split(',')
+        .filter(|s| !s.is_empty())
+        .map(Path::new).collect();
+
+    copy_with_callback(src, dst, |path, file_type| {
+        if file_type.is_dir() {
+            if bulk_dirs.contains(&path) {
+                writeln!(&manifest, "dir:{}", path.display())?;
+            }
         } else {
-            fs::copy(&path, &dst)?;
-            files.push(name);
+            if !bulk_dirs.iter().any(|d| path.starts_with(d)) {
+                writeln!(&manifest, "file:{}", path.display())?;
+            }
         }
+        Ok(())
+    })
+}
+
+/// Copies the `src` directory recursively to `dst`. Both are assumed to exist
+/// when this function is called.  Invokes a callback for each path visited.
+fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> io::Result<()>
+    where F: FnMut(&Path, fs::FileType) -> io::Result<()>
+{
+    for entry in WalkDir::new(src).min_depth(1) {
+        let entry = entry?;
+        let file_type = entry.file_type();
+        let path = entry.path().strip_prefix(src).unwrap();
+        let dst = dst.join(path);
+
+        if file_type.is_dir() {
+            fs::create_dir(&dst)?;
+        } else {
+            fs::copy(entry.path(), dst)?;
+        }
+        callback(&path, file_type)?;
     }
-    Ok(files)
+    Ok(())
 }
