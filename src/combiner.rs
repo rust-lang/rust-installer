@@ -11,7 +11,8 @@
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::Command;
+use flate2::read::GzDecoder;
+use tar::Archive;
 
 use super::Scripter;
 use super::Tarballer;
@@ -50,11 +51,8 @@ actor!{
 }
 
 impl Combiner {
-    /// Generate the actual installer tarball
+    /// Combine the installer tarballs
     pub fn run(self) -> io::Result<()> {
-        let path = get_path()?;
-        need_cmd(&path, "tar")?;
-
         fs::create_dir_all(&self.work_dir)?;
 
         let package_dir = Path::new(&self.work_dir).join(&self.package_name);
@@ -67,16 +65,9 @@ impl Combiner {
         let components = fs::File::create(package_dir.join("components"))?;
         for input_tarball in self.input_tarballs.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             // Extract the input tarballs
-            let status = Command::new("tar")
-                .arg("xzf")
-                .arg(&input_tarball)
-                .arg("-C")
-                .arg(&self.work_dir)
-                .status()?;
-            if !status.success() {
-                let msg = format!("failed to extract tarball: {}", status);
-                return Err(io::Error::new(io::ErrorKind::Other, msg));
-            }
+            let input = fs::File::open(&input_tarball)?;
+            let deflated = GzDecoder::new(input)?;
+            Archive::new(deflated).unpack(&self.work_dir)?;
 
             let pkg_name = input_tarball.trim_right_matches(".tar.gz");
             let pkg_name = Path::new(pkg_name).file_name().unwrap();

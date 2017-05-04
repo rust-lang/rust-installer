@@ -3,14 +3,16 @@ authors = ["The Rust Project Developers"]
 name = "installer"
 version = "0.0.0"
 
+[[bin]]
+doc = false
+name = "rust-installer"
+path = "src/main.rs"
+
 [dependencies]
+flate2 = "0.2.19"
+tar = "0.4.11"
 walkdir = "1.0.7"
 
 [dependencies.clap]
 features = ["yaml"]
 version = "2.22.1"
-
-[[bin]]
-name = "rust-installer"
-path = "src/main.rs"
-doc = false

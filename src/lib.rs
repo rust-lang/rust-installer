@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+extern crate flate2;
+extern crate tar;
 extern crate walkdir;
 
 #[macro_use]
