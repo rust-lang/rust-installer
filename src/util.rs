@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+
 use std::env;
 use std::ffi::{OsString, OsStr};
 use std::fs;
@@ -43,6 +44,7 @@ pub fn have_cmd(path: &OsStr, cmd: &str) -> bool {
     false
 }
 
+#[allow(dead_code)]
 pub fn need_cmd(path: &OsStr, cmd: &str) -> io::Result<()> {
     if have_cmd(path, cmd) {
         Ok(())

@@ -13,6 +13,8 @@ use std::io;
 use std::path::Path;
 use std::process::Command;
 
+use flate2;
+use flate2::write::GzEncoder;
 use tar::Builder;
 use walkdir::WalkDir;
 
@@ -36,7 +38,6 @@ impl Tarballer {
     /// Generate the actual tarballs
     pub fn run(self) -> io::Result<()> {
         let path = get_path()?;
-        need_cmd(&path, "gzip")?;
         let have_xz = need_either_cmd(&path, "xz", "7z")?;
 
         let tar = self.output + ".tar";
@@ -95,13 +96,15 @@ impl Tarballer {
         }
 
         // Write the .tar.gz file (removing the .tar)
-        let status = Command::new("gzip")
-            .arg(&tar)
-            .status()?;
-        if !status.success() {
-            let msg = format!("failed to make tar.gz: {}", status);
-            return Err(io::Error::new(io::ErrorKind::Other, msg));
-        }
+        let mut input = fs::File::open(&tar)?;
+        let output = fs::File::create(&tar_gz)?;
+        let mut encoded = GzEncoder::new(output, flate2::Compression::Best);
+        io::copy(&mut input, &mut encoded)?;
+        encoded.finish()?;
+        drop(input);
+
+        // Remove the .tar file
+        fs::remove_file(&tar)?;
 
         Ok(())
     }
