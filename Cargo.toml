@@ -9,3 +9,8 @@ walkdir = "1.0.7"
 [dependencies.clap]
 features = ["yaml"]
 version = "2.22.1"
+
+[[bin]]
+name = "rust-installer"
+path = "src/main.rs"
+doc = false
