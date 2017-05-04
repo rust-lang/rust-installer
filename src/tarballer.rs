@@ -9,9 +9,11 @@
 // except according to those terms.
 
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
+
+use tar::Builder;
 use walkdir::WalkDir;
 
 use util::*;
@@ -34,7 +36,6 @@ impl Tarballer {
     /// Generate the actual tarballs
     pub fn run(self) -> io::Result<()> {
         let path = get_path()?;
-        need_cmd(&path, "tar")?;
         need_cmd(&path, "gzip")?;
         let have_xz = need_either_cmd(&path, "xz", "7z")?;
 
@@ -56,24 +57,19 @@ impl Tarballer {
         paths.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
         // Write the tar file
-        let mut child = Command::new("tar")
-            .arg("-cf")
-            .arg(&tar)
-            .arg("-T")
-            .arg("-")
-            .stdin(Stdio::piped())
-            .current_dir(&self.work_dir)
-            .spawn()?;
-        if let Some(stdin) = child.stdin.as_mut() {
-            for path in paths {
-                writeln!(stdin, "{}", path)?;
+        let output = fs::File::create(&tar)?;
+        let mut builder = Builder::new(output);
+        for path in paths {
+            let path = Path::new(&path);
+            let src = Path::new(&self.work_dir).join(path);
+            if path.is_dir() {
+                builder.append_dir(path, src)?;
+            } else {
+                let mut src = fs::File::open(src)?;
+                builder.append_file(path, &mut src)?;
             }
         }
-        let status = child.wait()?;
-        if !status.success() {
-            let msg = format!("failed to make tarball: {}", status);
-            return Err(io::Error::new(io::ErrorKind::Other, msg));
-        }
+        builder.into_inner()?;
 
         // Write the .tar.xz file
         let status = if have_xz {
