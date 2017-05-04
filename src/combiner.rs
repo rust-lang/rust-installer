@@ -17,90 +17,39 @@ use super::Scripter;
 use super::Tarballer;
 use util::*;
 
-#[derive(Debug)]
-pub struct Combiner {
-    product_name: String,
-    package_name: String,
-    rel_manifest_dir: String,
-    success_message: String,
-    legacy_manifest_dirs: String,
-    input_tarballs: String,
-    non_installed_overlay: String,
-    work_dir: String,
-    output_dir: String,
-}
+actor!{
+    #[derive(Debug)]
+    pub struct Combiner {
+        /// The name of the product, for display
+        product_name: String = "Product",
 
-impl Default for Combiner {
-    fn default() -> Combiner {
-        Combiner {
-            product_name: "Product".into(),
-            package_name: "package".into(),
-            rel_manifest_dir: "packagelib".into(),
-            success_message: "Installed.".into(),
-            legacy_manifest_dirs: "".into(),
-            input_tarballs: "".into(),
-            non_installed_overlay: "".into(),
-            work_dir: "./workdir".into(),
-            output_dir: "./dist".into(),
-        }
+        /// The name of the package, tarball
+        package_name: String = "package",
+
+        /// The directory under lib/ where the manifest lives
+        rel_manifest_dir: String = "packagelib",
+
+        /// The string to print after successful installation
+        success_message: String = "Installed.",
+
+        /// Places to look for legacy manifests to uninstall
+        legacy_manifest_dirs: String = "",
+
+        /// Installers to combine
+        input_tarballs: String = "",
+
+        /// Directory containing files that should not be installed
+        non_installed_overlay: String = "",
+
+        /// The directory to do temporary work
+        work_dir: String = "./workdir",
+
+        /// The location to put the final image and tarball
+        output_dir: String = "./dist",
     }
 }
 
 impl Combiner {
-    /// The name of the product, for display
-    pub fn product_name(&mut self, value: String) -> &mut Self {
-        self.product_name = value;
-        self
-    }
-
-    /// The name of the package, tarball
-    pub fn package_name(&mut self, value: String) -> &mut Self {
-        self.package_name = value;
-        self
-    }
-
-    /// The directory under lib/ where the manifest lives
-    pub fn rel_manifest_dir(&mut self, value: String) -> &mut Self {
-        self.rel_manifest_dir = value;
-        self
-    }
-
-    /// The string to print after successful installation
-    pub fn success_message(&mut self, value: String) -> &mut Self {
-        self.success_message = value;
-        self
-    }
-
-    /// Places to look for legacy manifests to uninstall
-    pub fn legacy_manifest_dirs(&mut self, value: String) -> &mut Self {
-        self.legacy_manifest_dirs = value;
-        self
-    }
-
-    /// Installers to combine
-    pub fn input_tarballs(&mut self, value: String) -> &mut Self {
-        self.input_tarballs = value;
-        self
-    }
-
-    /// Directory containing files that should not be installed
-    pub fn non_installed_overlay(&mut self, value: String) -> &mut Self {
-        self.non_installed_overlay = value;
-        self
-    }
-
-    /// The directory to do temporary work
-    pub fn work_dir(&mut self, value: String) -> &mut Self {
-        self.work_dir = value;
-        self
-    }
-
-    /// The location to put the final image and tarball
-    pub fn output_dir(&mut self, value: String) -> &mut Self {
-        self.output_dir = value;
-        self
-    }
-
     /// Generate the actual installer tarball
     pub fn run(self) -> io::Result<()> {
         let path = get_path()?;
@@ -175,7 +124,7 @@ impl Combiner {
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
-            .output_script(output_script.to_str().unwrap().into());
+            .output_script(output_script.to_str().unwrap());
         scripter.run()?;
 
         // Make the tarballs
@@ -184,7 +133,7 @@ impl Combiner {
         let mut tarballer = Tarballer::default();
         tarballer.work_dir(self.work_dir)
             .input(self.package_name)
-            .output(output.to_str().unwrap().into());
+            .output(output.to_str().unwrap());
         tarballer.run()?;
 
         Ok(())

@@ -18,58 +18,28 @@ use std::os::unix::fs::OpenOptionsExt;
 
 const TEMPLATE: &'static str = include_str!("../install-template.sh");
 
-#[derive(Debug)]
-pub struct Scripter {
-    product_name: String,
-    rel_manifest_dir: String,
-    success_message: String,
-    legacy_manifest_dirs: String,
-    output_script: String,
-}
 
-impl Default for Scripter {
-    fn default() -> Scripter {
-        Scripter {
-            product_name: "Product".into(),
-            rel_manifest_dir: "manifestlib".into(),
-            success_message: "Installed.".into(),
-            legacy_manifest_dirs: "".into(),
-            output_script: "install.sh".into(),
-        }
+actor!{
+    #[derive(Debug)]
+    pub struct Scripter {
+        /// The name of the product, for display
+        product_name: String = "Product",
+
+        /// The directory under lib/ where the manifest lives
+        rel_manifest_dir: String = "manifestlib",
+
+        /// The string to print after successful installation
+        success_message: String = "Installed.",
+
+        /// Places to look for legacy manifests to uninstall
+        legacy_manifest_dirs: String = "",
+
+        /// The name of the output script
+        output_script: String = "install.sh",
     }
 }
 
 impl Scripter {
-    /// The name of the product, for display
-    pub fn product_name(&mut self, value: String) -> &mut Self {
-        self.product_name = value;
-        self
-    }
-
-    /// The directory under lib/ where the manifest lives
-    pub fn rel_manifest_dir(&mut self, value: String) -> &mut Self {
-        self.rel_manifest_dir = value;
-        self
-    }
-
-    /// The string to print after successful installation
-    pub fn success_message(&mut self, value: String) -> &mut Self {
-        self.success_message = value;
-        self
-    }
-
-    /// Places to look for legacy manifests to uninstall
-    pub fn legacy_manifest_dirs(&mut self, value: String) -> &mut Self {
-        self.legacy_manifest_dirs = value;
-        self
-    }
-
-    /// The name of the output script
-    pub fn output_script(&mut self, value: String) -> &mut Self {
-        self.output_script = value;
-        self
-    }
-
     /// Generate the actual installer script
     pub fn run(self) -> io::Result<()> {
         // Replace dashes in the success message with spaces (our arg handling botches spaces)

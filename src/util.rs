@@ -89,3 +89,32 @@ pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> io::Res
     }
     Ok(())
 }
+
+
+/// Create an "actor" with default values and setters for all fields.
+macro_rules! actor {
+    ($( #[ $attr:meta ] )+ pub struct $name:ident {
+        $( $( #[ $field_attr:meta ] )+ $field:ident : $type:ty = $default:expr, )*
+    }) => {
+        $( #[ $attr ] )+
+        pub struct $name {
+            $( $( #[ $field_attr ] )+ $field : $type, )*
+        }
+
+        impl Default for $name {
+            fn default() -> Self {
+                $name {
+                    $( $field : $default.into(), )*
+                }
+            }
+        }
+
+        impl $name {
+            $( $( #[ $field_attr ] )+
+            pub fn $field<T: Into<$type>>(&mut self, value: T) -> &mut Self {
+                self.$field = value.into();
+                self
+            })+
+        }
+    }
+}

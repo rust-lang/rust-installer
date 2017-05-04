@@ -10,11 +10,13 @@
 
 extern crate walkdir;
 
+#[macro_use]
+mod util;
+
 mod combiner;
 mod generator;
 mod scripter;
 mod tarballer;
-mod util;
 
 pub use combiner::Combiner;
 pub use generator::Generator;

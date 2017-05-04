@@ -16,42 +16,21 @@ use walkdir::WalkDir;
 
 use util::*;
 
-#[derive(Debug)]
-pub struct Tarballer {
-    input: String,
-    output: String,
-    work_dir: String,
-}
+actor!{
+    #[derive(Debug)]
+    pub struct Tarballer {
+        /// The input folder to be compressed
+        input: String = "package",
 
-impl Default for Tarballer {
-    fn default() -> Tarballer {
-        Tarballer {
-            input: "package".into(),
-            output: "./dist".into(),
-            work_dir: "./workdir.".into(),
-        }
+        /// The prefix of the tarballs
+        output: String = "./dist",
+
+        /// The fold in which the input is to be found
+        work_dir: String = "./workdir",
     }
 }
 
 impl Tarballer {
-    /// The input folder to be compressed
-    pub fn input(&mut self, value: String) -> &mut Self {
-        self.input = value;
-        self
-    }
-
-    /// The prefix of the tarballs
-    pub fn output(&mut self, value: String) -> &mut Self {
-        self.output = value;
-        self
-    }
-
-    /// The fold in which the input is to be found
-    pub fn work_dir(&mut self, value: String) -> &mut Self {
-        self.work_dir = value;
-        self
-    }
-
     /// Generate the actual tarballs
     pub fn run(self) -> io::Result<()> {
         let path = get_path()?;
