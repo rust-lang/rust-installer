@@ -60,6 +60,54 @@ subcommands:
             long: output-dir
             takes_value: true
             value_name: DIR
+  - combine:
+      about: Combine installer tarballs
+      args:
+        - product-name:
+            help: The name of the product, for display
+            long: product-name
+            takes_value: true
+            value_name: NAME
+        - package-name:
+            help: The name of the package, tarball
+            long: package-name
+            takes_value: true
+            value_name: NAME
+        - rel-manifest-dir:
+            help: The directory under lib/ where the manifest lives
+            long: rel-manifest-dir
+            takes_value: true
+            value_name: DIR
+        - success-message:
+            help: The string to print after successful installation
+            long: success-message
+            takes_value: true
+            value_name: MESSAGE
+        - legacy-manifest-dirs:
+            help: Places to look for legacy manifests to uninstall
+            long: legacy-manifest-dirs
+            takes_value: true
+            value_name: DIRS
+        - input-tarballs:
+            help: Installers to combine
+            long: input-tarballs
+            takes_value: true
+            value_name: FILE,FILE
+        - non-installed-overlay:
+            help: Directory containing files that should not be installed
+            long: non-installed-overlay
+            takes_value: true
+            value_name: DIR
+        - work-dir:
+            help: The directory to do temporary work
+            long: work-dir
+            takes_value: true
+            value_name: DIR
+        - output-dir:
+            help: The location to put the final image and tarball
+            long: output-dir
+            takes_value: true
+            value_name: DIR
   - script:
       about: Generate an installation script
       args:

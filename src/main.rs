@@ -10,10 +10,47 @@ fn main() {
     let matches = App::from_yaml(yaml).get_matches();
 
     match matches.subcommand() {
+        ("combine", Some(matches)) => combine(matches),
         ("generate", Some(matches)) => generate(matches),
         ("script", Some(matches)) => script(matches),
         ("tarball", Some(matches)) => tarball(matches),
         _ => unreachable!(),
+    }
+}
+
+fn combine(matches: &ArgMatches) {
+    let mut com = Combiner::default();
+    matches
+        .value_of("product-name")
+        .map(|s| com.product_name(s.into()));
+    matches
+        .value_of("package-name")
+        .map(|s| com.package_name(s.into()));
+    matches
+        .value_of("rel-manifest-dir")
+        .map(|s| com.rel_manifest_dir(s.into()));
+    matches
+        .value_of("success-message")
+        .map(|s| com.success_message(s.into()));
+    matches
+        .value_of("legacy-manifest-dirs")
+        .map(|s| com.legacy_manifest_dirs(s.into()));
+    matches
+        .value_of("input-tarballs")
+        .map(|s| com.input_tarballs(s.into()));
+    matches
+        .value_of("non-installed-overlay")
+        .map(|s| com.non_installed_overlay(s.into()));
+    matches
+        .value_of("work-dir")
+        .map(|s| com.work_dir(s.into()));
+    matches
+        .value_of("output-dir")
+        .map(|s| com.output_dir(s.into()));
+
+    if let Err(e) = com.run() {
+        println!("failed to combine installers: {}", e);
+        std::process::exit(1);
     }
 }
 

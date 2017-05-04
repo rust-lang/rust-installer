@@ -8,13 +8,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::env;
-use std::ffi::{OsString, OsStr};
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
+
+use util::*;
 
 #[derive(Debug)]
 pub struct Tarballer {
@@ -129,54 +129,6 @@ impl Tarballer {
         }
 
         Ok(())
-    }
-}
-
-fn get_path() -> io::Result<OsString> {
-    let path = env::var_os("PATH").unwrap_or(OsString::new());
-    // On Windows, quotes are invalid characters for filename paths, and if
-    // one is present as part of the PATH then that can lead to the system
-    // being unable to identify the files properly. See
-    // https://github.com/rust-lang/rust/issues/34959 for more details.
-    if cfg!(windows) {
-        if path.to_string_lossy().contains("\"") {
-            let msg = "PATH contains invalid character '\"'";
-            return Err(io::Error::new(io::ErrorKind::Other, msg));
-        }
-    }
-    Ok(path)
-}
-
-fn have_cmd(path: &OsStr, cmd: &str) -> bool {
-    for path in env::split_paths(path) {
-        let target = path.join(cmd);
-        let cmd_alt = cmd.to_string() + ".exe";
-        if target.is_file() ||
-           target.with_extension("exe").exists() ||
-           target.join(cmd_alt).exists() {
-            return true;
-        }
-    }
-    false
-}
-
-fn need_cmd(path: &OsStr, cmd: &str) -> io::Result<()> {
-    if have_cmd(path, cmd) {
-        Ok(())
-    } else {
-        let msg = format!("couldn't find required command: '{}'", cmd);
-        Err(io::Error::new(io::ErrorKind::NotFound, msg))
-    }
-}
-
-fn need_either_cmd(path: &OsStr, cmd1: &str, cmd2: &str) -> io::Result<bool> {
-    if have_cmd(path, cmd1) {
-        Ok(true)
-    } else if have_cmd(path, cmd2) {
-        Ok(false)
-    } else {
-        let msg = format!("couldn't find either command: '{}' or '{}'", cmd1, cmd2);
-        Err(io::Error::new(io::ErrorKind::NotFound, msg))
     }
 }
 

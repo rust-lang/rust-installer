@@ -9,56 +9,47 @@
 // except according to those terms.
 
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
+use std::process::Command;
 
 use super::Scripter;
 use super::Tarballer;
 use util::*;
 
 #[derive(Debug)]
-pub struct Generator {
+pub struct Combiner {
     product_name: String,
-    component_name: String,
     package_name: String,
     rel_manifest_dir: String,
     success_message: String,
     legacy_manifest_dirs: String,
+    input_tarballs: String,
     non_installed_overlay: String,
-    bulk_dirs: String,
-    image_dir: String,
     work_dir: String,
     output_dir: String,
 }
 
-impl Default for Generator {
-    fn default() -> Generator {
-        Generator {
+impl Default for Combiner {
+    fn default() -> Combiner {
+        Combiner {
             product_name: "Product".into(),
-            component_name: "component".into(),
             package_name: "package".into(),
             rel_manifest_dir: "packagelib".into(),
             success_message: "Installed.".into(),
             legacy_manifest_dirs: "".into(),
+            input_tarballs: "".into(),
             non_installed_overlay: "".into(),
-            bulk_dirs: "".into(),
-            image_dir: "./install_image".into(),
             work_dir: "./workdir".into(),
             output_dir: "./dist".into(),
         }
     }
 }
 
-impl Generator {
+impl Combiner {
     /// The name of the product, for display
     pub fn product_name(&mut self, value: String) -> &mut Self {
         self.product_name = value;
-        self
-    }
-
-    /// The name of the component, distinct from other installed components
-    pub fn component_name(&mut self, value: String) -> &mut Self {
-        self.component_name = value;
         self
     }
 
@@ -86,21 +77,15 @@ impl Generator {
         self
     }
 
+    /// Installers to combine
+    pub fn input_tarballs(&mut self, value: String) -> &mut Self {
+        self.input_tarballs = value;
+        self
+    }
+
     /// Directory containing files that should not be installed
     pub fn non_installed_overlay(&mut self, value: String) -> &mut Self {
         self.non_installed_overlay = value;
-        self
-    }
-
-    /// Path prefixes of directories that should be installed/uninstalled in bulk
-    pub fn bulk_dirs(&mut self, value: String) -> &mut Self {
-        self.bulk_dirs = value;
-        self
-    }
-
-    /// The directory containing the installation medium
-    pub fn image_dir(&mut self, value: String) -> &mut Self {
-        self.image_dir = value;
         self
     }
 
@@ -118,24 +103,62 @@ impl Generator {
 
     /// Generate the actual installer tarball
     pub fn run(self) -> io::Result<()> {
+        let path = get_path()?;
+        need_cmd(&path, "tar")?;
+
         fs::create_dir_all(&self.work_dir)?;
 
         let package_dir = Path::new(&self.work_dir).join(&self.package_name);
         if package_dir.exists() {
             fs::remove_dir_all(&package_dir)?;
         }
+        fs::create_dir_all(&package_dir)?;
 
-        // Copy the image and write the manifest
-        let component_dir = package_dir.join(&self.component_name);
-        fs::create_dir_all(&component_dir)?;
-        copy_and_manifest(self.image_dir.as_ref(), &component_dir, &self.bulk_dirs)?;
-
-        // Write the component name
+        // Merge each installer into the work directory of the new installer
         let components = fs::File::create(package_dir.join("components"))?;
-        writeln!(&components, "{}", self.component_name)?;
+        for input_tarball in self.input_tarballs.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            // Extract the input tarballs
+            let status = Command::new("tar")
+                .arg("xzf")
+                .arg(&input_tarball)
+                .arg("-C")
+                .arg(&self.work_dir)
+                .status()?;
+            if !status.success() {
+                let msg = format!("failed to extract tarball: {}", status);
+                return Err(io::Error::new(io::ErrorKind::Other, msg));
+            }
+
+            let pkg_name = input_tarball.trim_right_matches(".tar.gz");
+            let pkg_name = Path::new(pkg_name).file_name().unwrap();
+            let pkg_dir = Path::new(&self.work_dir).join(&pkg_name);
+
+            // Verify the version number
+            let mut version = String::new();
+            fs::File::open(pkg_dir.join("rust-installer-version"))?
+                .read_to_string(&mut version)?;
+            if version.trim().parse() != Ok(::RUST_INSTALLER_VERSION) {
+                let msg = format!("incorrect installer version in {}", input_tarball);
+                return Err(io::Error::new(io::ErrorKind::Other, msg));
+            }
+
+            // Copy components to new combined installer
+            let mut pkg_components = String::new();
+            fs::File::open(pkg_dir.join("components"))?
+                .read_to_string(&mut pkg_components)?;
+            for component in pkg_components.split_whitespace() {
+                // All we need to do is copy the component directory
+                let component_dir = package_dir.join(&component);
+                fs::create_dir(&component_dir)?;
+                copy_recursive(&pkg_dir.join(&component), &component_dir)?;
+
+                // Merge the component name
+                writeln!(&components, "{}", component)?;
+            }
+        }
         drop(components);
 
-        // Write the installer version (only used by combine-installers.sh)
+        // Write the installer version
         let version = fs::File::create(package_dir.join("rust-installer-version"))?;
         writeln!(&version, "{}", ::RUST_INSTALLER_VERSION)?;
         drop(version);
@@ -166,25 +189,4 @@ impl Generator {
 
         Ok(())
     }
-}
-
-/// Copies the `src` directory recursively to `dst`, writing `manifest.in` too.
-fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> io::Result<()> {
-    let manifest = fs::File::create(dst.join("manifest.in"))?;
-    let bulk_dirs: Vec<_> = bulk_dirs.split(',')
-        .filter(|s| !s.is_empty())
-        .map(Path::new).collect();
-
-    copy_with_callback(src, dst, |path, file_type| {
-        if file_type.is_dir() {
-            if bulk_dirs.contains(&path) {
-                writeln!(&manifest, "dir:{}", path.display())?;
-            }
-        } else {
-            if !bulk_dirs.iter().any(|d| path.starts_with(d)) {
-                writeln!(&manifest, "file:{}", path.display())?;
-            }
-        }
-        Ok(())
-    })
 }
