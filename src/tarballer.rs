@@ -48,8 +48,9 @@ impl Tarballer {
         // Sort files by their suffix, to group files with the same name from
         // different locations (likely identical) and files with the same
         // extension (likely containing similar data).
-        let mut paths = get_recursive_paths(self.work_dir.as_ref(), self.input.as_ref())?;
-        paths.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
+        let (dirs, mut files) = get_recursive_paths(self.work_dir.as_ref(),
+                                                    self.input.as_ref())?;
+        files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
         // Prepare the .tar.gz file
         let output = fs::File::create(&tar_gz)?;
@@ -59,17 +60,17 @@ impl Tarballer {
         let output = fs::File::create(&tar_xz)?;
         let xz = XzEncoder::new(output, 9);
 
-        // Write the tar into both encoded files
+        // Write the tar into both encoded files.  We write all directories
+        // first, so files may be directly created. (see rustup.rs#1092)
         let mut builder = Builder::new(Tee(gz, xz));
-        for path in paths {
-            let path = Path::new(&path);
-            let src = Path::new(&self.work_dir).join(path);
-            if path.is_dir() {
-                builder.append_dir(path, src)?;
-            } else {
-                let mut src = fs::File::open(src)?;
-                builder.append_file(path, &mut src)?;
-            }
+        for path in dirs {
+            let src = Path::new(&self.work_dir).join(&path);
+            builder.append_dir(&path, src)?;
+        }
+        for path in files {
+            let src = Path::new(&self.work_dir).join(&path);
+            fs::File::open(src)
+                .and_then(|mut file| builder.append_file(&path, &mut file))?;
         }
         let Tee(gz, xz) = builder.into_inner()?;
 
@@ -81,24 +82,22 @@ impl Tarballer {
     }
 }
 
-fn get_recursive_paths(root: &Path, name: &Path) -> io::Result<Vec<String>> {
-    let mut paths = vec![];
+/// Returns all `(directories, files)` under the source path
+fn get_recursive_paths(root: &Path, name: &Path) -> io::Result<(Vec<String>, Vec<String>)> {
+    let mut dirs = vec![];
+    let mut files = vec![];
     for entry in WalkDir::new(root.join(name)).min_depth(1) {
         let entry = entry?;
         let path = entry.path().strip_prefix(root).unwrap();
         let path = path.to_str().unwrap().to_owned();
 
         if entry.file_type().is_dir() {
-            // Include only empty dirs, as others get add via their contents.
-            // FIXME: do we really need empty dirs at all?
-            if fs::read_dir(entry.path())?.next().is_none() {
-                paths.push(path);
-            }
+            dirs.push(path);
         } else {
-            paths.push(path);
+            files.push(path);
         }
     }
-    Ok(paths)
+    Ok((dirs, files))
 }
 
 struct Tee<A, B>(A, B);
