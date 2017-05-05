@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -56,14 +55,10 @@ impl Tarballer {
         files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
         // Prepare the .tar.gz file
-        let output = fs::File::create(&tar_gz)
-            .chain_err(|| "failed to create .tar.gz file")?;
-        let gz = GzEncoder::new(output, flate2::Compression::Best);
+        let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::Best);
 
         // Prepare the .tar.xz file
-        let output = fs::File::create(&tar_xz)
-            .chain_err(|| "failed to create .tar.xz file")?;
-        let xz = XzEncoder::new(output, 9);
+        let xz = XzEncoder::new(create_new_file(tar_xz)?, 9);
 
         // Write the tar into both encoded files.  We write all directories
         // first, so files may be directly created. (see rustup.rs#1092)
@@ -75,8 +70,7 @@ impl Tarballer {
         }
         for path in files {
             let src = Path::new(&self.work_dir).join(&path);
-            fs::File::open(&src)
-                .and_then(|mut file| builder.append_file(&path, &mut file))
+            builder.append_file(&path, &mut open_file(&src)?)
                 .chain_err(|| format!("failed to tar file '{}'", src.display()))?;
         }
         let Tee(gz, xz) = builder.into_inner()

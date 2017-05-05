@@ -13,6 +13,11 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
+// Needed to set the script mode to executable.
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+// FIXME: what about Windows?  Are default ACLs executable?
+
 use errors::*;
 
 /// Convert a `&Path` to a UTF-8 `&str`
@@ -39,6 +44,27 @@ pub fn create_dir<P: AsRef<Path>>(path: P) -> Result<()> {
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir_all(&path)
         .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
+}
+
+/// Wrap `fs::OpenOptions::create_new().open()` as executable, with a nicer error message
+pub fn create_new_executable<P: AsRef<Path>>(path: P) -> Result<fs::File> {
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)] options.mode(0o755);
+    options.open(&path)
+        .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
+}
+
+/// Wrap `fs::OpenOptions::create_new().open()`, with a nicer error message
+pub fn create_new_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
+    fs::OpenOptions::new().write(true).create_new(true).open(&path)
+        .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
+}
+
+/// Wrap `fs::File::open()` with a nicer error message
+pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
+    fs::File::open(&path)
+        .chain_err(|| format!("failed to open file '{}'", path.as_ref().display()))
 }
 
 /// Wrap `remove_dir_all` with a nicer error message

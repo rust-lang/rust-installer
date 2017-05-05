@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fs;
 use std::io::Write;
 use std::path::Path;
 
@@ -71,14 +70,14 @@ impl Generator {
         copy_and_manifest(self.image_dir.as_ref(), &component_dir, &self.bulk_dirs)?;
 
         // Write the component name
-        fs::File::create(package_dir.join("components"))
-            .and_then(|file| writeln!(&file, "{}", self.component_name))
+        let components = package_dir.join("components");
+        writeln!(create_new_file(components)?, "{}", self.component_name)
             .chain_err(|| "failed to write the component file")?;
 
         // Write the installer version (only used by combine-installers.sh)
-        fs::File::create(package_dir.join("rust-installer-version"))
-            .and_then(|file| writeln!(&file, "{}", ::RUST_INSTALLER_VERSION))
-            .chain_err(|| "failed to write the installer version")?;
+        let version = package_dir.join("rust-installer-version");
+        writeln!(create_new_file(version)?, "{}", ::RUST_INSTALLER_VERSION)
+            .chain_err(|| "failed to write new installer version")?;
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
@@ -110,7 +109,7 @@ impl Generator {
 
 /// Copies the `src` directory recursively to `dst`, writing `manifest.in` too.
 fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> Result<()> {
-    let manifest = fs::File::create(dst.join("manifest.in"))?;
+    let manifest = create_new_file(dst.join("manifest.in"))?;
     let bulk_dirs: Vec<_> = bulk_dirs.split(',')
         .filter(|s| !s.is_empty())
         .map(Path::new).collect();

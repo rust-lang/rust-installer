@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
 use flate2::read::GzDecoder;
@@ -63,12 +62,10 @@ impl Combiner {
         create_dir_all(&package_dir)?;
 
         // Merge each installer into the work directory of the new installer
-        let components = fs::File::create(package_dir.join("components"))
-            .chain_err(|| "failed to create a new components file")?;
+        let components = create_new_file(package_dir.join("components"))?;
         for input_tarball in self.input_tarballs.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             // Extract the input tarballs
-            fs::File::open(&input_tarball)
-                .and_then(GzDecoder::new)
+            GzDecoder::new(open_file(&input_tarball)?)
                 .and_then(|tar| Archive::new(tar).unpack(&self.work_dir))
                 .chain_err(|| format!("unable to extract '{}' into '{}'",
                                       &input_tarball, self.work_dir))?;
@@ -79,8 +76,8 @@ impl Combiner {
 
             // Verify the version number
             let mut version = String::new();
-            fs::File::open(pkg_dir.join("rust-installer-version"))
-                .and_then(|mut file| file.read_to_string(&mut version))
+            open_file(pkg_dir.join("rust-installer-version"))
+                .and_then(|mut file| file.read_to_string(&mut version).map_err(Error::from))
                 .chain_err(|| format!("failed to read version in '{}'", input_tarball))?;
             if version.trim().parse() != Ok(::RUST_INSTALLER_VERSION) {
                 bail!("incorrect installer version in {}", input_tarball);
@@ -88,8 +85,8 @@ impl Combiner {
 
             // Move components to the new combined installer
             let mut pkg_components = String::new();
-            fs::File::open(pkg_dir.join("components"))
-                .and_then(|mut file| file.read_to_string(&mut pkg_components))
+            open_file(pkg_dir.join("components"))
+                .and_then(|mut file| file.read_to_string(&mut pkg_components).map_err(Error::from))
                 .chain_err(|| format!("failed to read components in '{}'", input_tarball))?;
             for component in pkg_components.split_whitespace() {
                 // All we need to do is move the component directory
@@ -104,8 +101,8 @@ impl Combiner {
         drop(components);
 
         // Write the installer version
-        fs::File::create(package_dir.join("rust-installer-version"))
-            .and_then(|file| writeln!(&file, "{}", ::RUST_INSTALLER_VERSION))
+        let version = package_dir.join("rust-installer-version");
+        writeln!(create_new_file(version)?, "{}", ::RUST_INSTALLER_VERSION)
             .chain_err(|| "failed to write new installer version")?;
 
         // Copy the overlay

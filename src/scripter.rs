@@ -8,15 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fs;
 use std::io::Write;
 
-// Needed to set the script mode to executable.
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
-// FIXME: what about Windows?  Are default ACLs executable?
-
 use errors::*;
+use util::*;
 
 const TEMPLATE: &'static str = include_str!("../install-template.sh");
 
@@ -59,11 +54,8 @@ impl Scripter {
             .replace("%%TEMPLATE_LEGACY_MANIFEST_DIRS%%", &sh_quote(&self.legacy_manifest_dirs))
             .replace("%%TEMPLATE_RUST_INSTALLER_VERSION%%", &sh_quote(&::RUST_INSTALLER_VERSION));
 
-        let mut options = fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)] options.mode(0o755);
-        options.open(&self.output_script)
-            .and_then(|mut output| output.write_all(script.as_ref()))
+        create_new_executable(&self.output_script)?
+            .write_all(script.as_ref())
             .chain_err(|| format!("failed to write output script '{}'", self.output_script))
     }
 }
