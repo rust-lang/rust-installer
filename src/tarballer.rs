@@ -97,7 +97,7 @@ fn get_recursive_paths<P, Q>(root: P, name: Q) -> Result<(Vec<String>, Vec<Strin
 
     let mut dirs = vec![];
     let mut files = vec![];
-    for entry in WalkDir::new(root.join(name)).min_depth(1) {
+    for entry in WalkDir::new(root.join(name)) {
         let entry = entry?;
         let path = entry.path().strip_prefix(root)?;
         let path = path_to_str(&path)?;
