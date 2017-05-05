@@ -83,15 +83,14 @@ impl Combiner {
                 return Err(io::Error::new(io::ErrorKind::Other, msg));
             }
 
-            // Copy components to new combined installer
+            // Move components to the new combined installer
             let mut pkg_components = String::new();
             fs::File::open(pkg_dir.join("components"))?
                 .read_to_string(&mut pkg_components)?;
             for component in pkg_components.split_whitespace() {
-                // All we need to do is copy the component directory
+                // All we need to do is move the component directory
                 let component_dir = package_dir.join(&component);
-                fs::create_dir(&component_dir)?;
-                copy_recursive(&pkg_dir.join(&component), &component_dir)?;
+                fs::rename(&pkg_dir.join(&component), &component_dir)?;
 
                 // Merge the component name
                 writeln!(&components, "{}", component)?;
