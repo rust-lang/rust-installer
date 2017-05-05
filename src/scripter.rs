@@ -59,9 +59,7 @@ impl Scripter {
 
         let mut options = fs::OpenOptions::new();
         options.write(true).create_new(true);
-        if cfg!(unix) {
-            options.mode(0o755);
-        }
+        #[cfg(unix)] options.mode(0o755);
         let output = options.open(self.output_script)?;
         writeln!(&output, "{}", script)
     }
