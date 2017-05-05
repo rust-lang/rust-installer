@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#[macro_use]
+extern crate error_chain;
 extern crate flate2;
 extern crate tar;
 extern crate walkdir;
@@ -21,6 +23,16 @@ extern crate kernel32;
 #[macro_use]
 extern crate lazy_static;
 
+mod errors {
+    error_chain!{
+        foreign_links {
+            Io(::std::io::Error);
+            StripPrefix(::std::path::StripPrefixError);
+            WalkDir(::walkdir::Error);
+        }
+    }
+}
+
 #[macro_use]
 mod util;
 
@@ -32,6 +44,7 @@ mod generator;
 mod scripter;
 mod tarballer;
 
+pub use errors::{Result, Error, ErrorKind};
 pub use combiner::Combiner;
 pub use generator::Generator;
 pub use scripter::Scripter;

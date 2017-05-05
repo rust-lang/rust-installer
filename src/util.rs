@@ -10,31 +10,77 @@
 
 
 use std::fs;
-use std::io;
 use std::path::Path;
 use walkdir::WalkDir;
 
+use errors::*;
+
+/// Convert a `&Path` to a UTF-8 `&str`
+pub fn path_to_str(path: &Path) -> Result<&str> {
+    path.to_str().ok_or_else(|| {
+        ErrorKind::Msg(format!("path is not valid UTF-8 '{}'", path.display())).into()
+    })
+}
+
+/// Wrap `fs::copy` with a nicer error message
+pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
+    fs::copy(&from, &to)
+        .chain_err(|| format!("failed to copy '{}' to '{}'",
+                              from.as_ref().display(), to.as_ref().display()))
+}
+
+/// Wrap `fs::create_dir` with a nicer error message
+pub fn create_dir<P: AsRef<Path>>(path: P) -> Result<()> {
+    fs::create_dir(&path)
+        .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
+}
+
+/// Wrap `fs::create_dir_all` with a nicer error message
+pub fn create_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
+    fs::create_dir_all(&path)
+        .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
+}
+
+/// Wrap `remove_dir_all` with a nicer error message
+pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
+    ::remove_dir_all::remove_dir_all(path.as_ref())
+        .chain_err(|| format!("failed to remove dir '{}'", path.as_ref().display()))
+}
+
+/// Wrap `fs::remove_file` with a nicer error message
+pub fn remove_file<P: AsRef<Path>>(path: P) -> Result<()> {
+    fs::remove_file(path.as_ref())
+        .chain_err(|| format!("failed to remove file '{}'", path.as_ref().display()))
+}
+
+/// Wrap `fs::rename` with a nicer error message
+pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
+    fs::rename(&from, &to)
+        .chain_err(|| format!("failed to rename '{}' to '{}'",
+                              from.as_ref().display(), to.as_ref().display()))
+}
+
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
 /// when this function is called.
-pub fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
+pub fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
     copy_with_callback(src, dst, |_, _| Ok(()))
 }
 
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
 /// when this function is called.  Invokes a callback for each path visited.
-pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> io::Result<()>
-    where F: FnMut(&Path, fs::FileType) -> io::Result<()>
+pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> Result<()>
+    where F: FnMut(&Path, fs::FileType) -> Result<()>
 {
     for entry in WalkDir::new(src).min_depth(1) {
         let entry = entry?;
         let file_type = entry.file_type();
-        let path = entry.path().strip_prefix(src).unwrap();
+        let path = entry.path().strip_prefix(src)?;
         let dst = dst.join(path);
 
         if file_type.is_dir() {
-            fs::create_dir(&dst)?;
+            create_dir(&dst)?;
         } else {
-            fs::copy(entry.path(), dst)?;
+            copy(entry.path(), dst)?;
         }
         callback(&path, file_type)?;
     }

@@ -1,11 +1,23 @@
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate error_chain;
 extern crate installer;
 
+use errors::*;
 use clap::{App, ArgMatches};
-use installer::*;
 
-fn main() {
+mod errors {
+    error_chain!{
+        links {
+            Installer(::installer::Error, ::installer::ErrorKind);
+        }
+    }
+}
+
+quick_main!(run);
+
+fn run() -> Result<()> {
     let yaml = load_yaml!("main.yml");
     let matches = App::from_yaml(yaml).get_matches();
 
@@ -29,8 +41,8 @@ macro_rules! parse(
     }
 );
 
-fn combine(matches: &ArgMatches) {
-    let combiner = parse!(matches => Combiner {
+fn combine(matches: &ArgMatches) -> Result<()> {
+    let combiner = parse!(matches => installer::Combiner {
         "product-name" => product_name,
         "package-name" => package_name,
         "rel-manifest-dir" => rel_manifest_dir,
@@ -42,14 +54,11 @@ fn combine(matches: &ArgMatches) {
         "output-dir" => output_dir,
     });
 
-    if let Err(e) = combiner.run() {
-        println!("failed to combine installers: {}", e);
-        std::process::exit(1);
-    }
+    combiner.run().chain_err(|| "failed to combine installers")
 }
 
-fn generate(matches: &ArgMatches) {
-    let generator = parse!(matches => Generator {
+fn generate(matches: &ArgMatches) -> Result<()> {
+    let generator = parse!(matches => installer::Generator {
         "product-name" => product_name,
         "component-name" => component_name,
         "package-name" => package_name,
@@ -63,14 +72,11 @@ fn generate(matches: &ArgMatches) {
         "output-dir" => output_dir,
     });
 
-    if let Err(e) = generator.run() {
-        println!("failed to generate installer: {}", e);
-        std::process::exit(1);
-    }
+    generator.run().chain_err(|| "failed to generate installer")
 }
 
-fn script(matches: &ArgMatches) {
-    let scripter = parse!(matches => Scripter {
+fn script(matches: &ArgMatches) -> Result<()> {
+    let scripter = parse!(matches => installer::Scripter {
         "product-name" => product_name,
         "rel-manifest-dir" => rel_manifest_dir,
         "success-message" => success_message,
@@ -78,21 +84,15 @@ fn script(matches: &ArgMatches) {
         "output-script" => output_script,
     });
 
-    if let Err(e) = scripter.run() {
-        println!("failed to generate installation script: {}", e);
-        std::process::exit(1);
-    }
+    scripter.run().chain_err(|| "failed to generate installation script")
 }
 
-fn tarball(matches: &ArgMatches) {
-    let tarballer = parse!(matches => Tarballer {
+fn tarball(matches: &ArgMatches) -> Result<()> {
+    let tarballer = parse!(matches => installer::Tarballer {
         "input" => input,
         "output" => output,
         "work-dir" => work_dir,
     });
 
-    if let Err(e) = tarballer.run() {
-        println!("failed to generate tarballs: {}", e);
-        std::process::exit(1);
-    }
+    tarballer.run().chain_err(|| "failed to generate tarballs")
 }

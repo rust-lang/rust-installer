@@ -9,12 +9,12 @@
 // except according to those terms.
 
 use std::fs;
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::Path;
 
+use errors::*;
 use super::Scripter;
 use super::Tarballer;
-use remove_dir_all::*;
 use util::*;
 
 actor!{
@@ -57,8 +57,8 @@ actor!{
 
 impl Generator {
     /// Generate the actual installer tarball
-    pub fn run(self) -> io::Result<()> {
-        fs::create_dir_all(&self.work_dir)?;
+    pub fn run(self) -> Result<()> {
+        create_dir_all(&self.work_dir)?;
 
         let package_dir = Path::new(&self.work_dir).join(&self.package_name);
         if package_dir.exists() {
@@ -67,18 +67,18 @@ impl Generator {
 
         // Copy the image and write the manifest
         let component_dir = package_dir.join(&self.component_name);
-        fs::create_dir_all(&component_dir)?;
+        create_dir_all(&component_dir)?;
         copy_and_manifest(self.image_dir.as_ref(), &component_dir, &self.bulk_dirs)?;
 
         // Write the component name
-        let components = fs::File::create(package_dir.join("components"))?;
-        writeln!(&components, "{}", self.component_name)?;
-        drop(components);
+        fs::File::create(package_dir.join("components"))
+            .and_then(|file| writeln!(&file, "{}", self.component_name))
+            .chain_err(|| "failed to write the component file")?;
 
         // Write the installer version (only used by combine-installers.sh)
-        let version = fs::File::create(package_dir.join("rust-installer-version"))?;
-        writeln!(&version, "{}", ::RUST_INSTALLER_VERSION)?;
-        drop(version);
+        fs::File::create(package_dir.join("rust-installer-version"))
+            .and_then(|file| writeln!(&file, "{}", ::RUST_INSTALLER_VERSION))
+            .chain_err(|| "failed to write the installer version")?;
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
@@ -92,16 +92,16 @@ impl Generator {
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
-            .output_script(output_script.to_str().unwrap());
+            .output_script(path_to_str(&output_script)?);
         scripter.run()?;
 
         // Make the tarballs
-        fs::create_dir_all(&self.output_dir)?;
+        create_dir_all(&self.output_dir)?;
         let output = Path::new(&self.output_dir).join(&self.package_name);
         let mut tarballer = Tarballer::default();
         tarballer.work_dir(self.work_dir)
             .input(self.package_name)
-            .output(output.to_str().unwrap());
+            .output(path_to_str(&output)?);
         tarballer.run()?;
 
         Ok(())
@@ -109,7 +109,7 @@ impl Generator {
 }
 
 /// Copies the `src` directory recursively to `dst`, writing `manifest.in` too.
-fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> io::Result<()> {
+fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> Result<()> {
     let manifest = fs::File::create(dst.join("manifest.in"))?;
     let bulk_dirs: Vec<_> = bulk_dirs.split(',')
         .filter(|s| !s.is_empty())

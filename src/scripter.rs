@@ -9,12 +9,14 @@
 // except according to those terms.
 
 use std::fs;
-use std::io::{self, Write};
+use std::io::Write;
 
 // Needed to set the script mode to executable.
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 // FIXME: what about Windows?  Are default ACLs executable?
+
+use errors::*;
 
 const TEMPLATE: &'static str = include_str!("../install-template.sh");
 
@@ -41,7 +43,7 @@ actor!{
 
 impl Scripter {
     /// Generate the actual installer script
-    pub fn run(self) -> io::Result<()> {
+    pub fn run(self) -> Result<()> {
         // Replace dashes in the success message with spaces (our arg handling botches spaces)
         // (TODO: still needed?  kept for compatibility for now...)
         let product_name = self.product_name.replace('-', " ");
@@ -60,8 +62,9 @@ impl Scripter {
         let mut options = fs::OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)] options.mode(0o755);
-        let output = options.open(self.output_script)?;
-        writeln!(&output, "{}", script)
+        options.open(&self.output_script)
+            .and_then(|mut output| output.write_all(script.as_ref()))
+            .chain_err(|| format!("failed to write output script '{}'", self.output_script))
     }
 }
 
