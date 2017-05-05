@@ -268,11 +268,8 @@ need_ok "couldn't delete old xz tarball"
 # Make a tarball
 cd "$CFG_WORK_DIR"
 
-# Sort files by their suffix, to group files with the same name from
-# different locations (likely identical) and files with the same
-# extension (likely containing similar data).
-find "$CFG_INPUT" \( -type d -empty \) -or \( -not -type d \) \
-    | rev | sort | rev | tar -cf "$CFG_OUTPUT.tar" -T -
+tar -cf "$CFG_OUTPUT.tar" "$CFG_INPUT"
+
 need_ok "failed to tar"
 
 if command -v xz >/dev/null 2>&1
