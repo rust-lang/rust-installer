@@ -13,8 +13,19 @@ extern crate tar;
 extern crate walkdir;
 extern crate xz2;
 
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+extern crate kernel32;
+#[cfg(windows)]
+#[macro_use]
+extern crate lazy_static;
+
 #[macro_use]
 mod util;
+
+// deal with OS complications (cribbed from rustup.rs)
+mod remove_dir_all;
 
 mod combiner;
 mod generator;

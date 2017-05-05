@@ -17,3 +17,8 @@ xz2 = "0.1.3"
 [dependencies.clap]
 features = ["yaml"]
 version = "2.22.1"
+
+[target."cfg(windows)".dependencies]
+lazy_static = "0.2.8"
+kernel32-sys = "0.2.2"
+winapi = "0.2.8"

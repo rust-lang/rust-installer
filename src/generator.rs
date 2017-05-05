@@ -14,6 +14,7 @@ use std::path::Path;
 
 use super::Scripter;
 use super::Tarballer;
+use remove_dir_all::*;
 use util::*;
 
 actor!{
@@ -61,7 +62,7 @@ impl Generator {
 
         let package_dir = Path::new(&self.work_dir).join(&self.package_name);
         if package_dir.exists() {
-            fs::remove_dir_all(&package_dir)?;
+            remove_dir_all(&package_dir)?;
         }
 
         // Copy the image and write the manifest
