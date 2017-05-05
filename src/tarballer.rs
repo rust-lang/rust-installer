@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use std::fs;
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Write};
 use std::path::Path;
 
 use flate2;
@@ -35,12 +35,11 @@ actor!{
 impl Tarballer {
     /// Generate the actual tarballs
     pub fn run(self) -> io::Result<()> {
-        let tar = self.output + ".tar";
-        let tar_gz = tar.clone() + ".gz";
-        let tar_xz = tar.clone() + ".xz";
+        let tar_gz = self.output.clone() + ".tar.gz";
+        let tar_xz = self.output.clone() + ".tar.xz";
 
         // Remove any existing files
-        for file in &[&tar, &tar_gz, &tar_xz] {
+        for file in &[&tar_gz, &tar_xz] {
             if Path::new(file).exists() {
                 fs::remove_file(file)?;
             }
@@ -52,10 +51,16 @@ impl Tarballer {
         let mut paths = get_recursive_paths(self.work_dir.as_ref(), self.input.as_ref())?;
         paths.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
-        // Write the tar file
-        // let output = fs::File::create(&tar)?;
-        let output = fs::OpenOptions::new().read(true).write(true).create_new(true).open(&tar)?;
-        let mut builder = Builder::new(output);
+        // Prepare the .tar.gz file
+        let output = fs::File::create(&tar_gz)?;
+        let gz = GzEncoder::new(output, flate2::Compression::Best);
+
+        // Prepare the .tar.xz file
+        let output = fs::File::create(&tar_xz)?;
+        let xz = XzEncoder::new(output, 9);
+
+        // Write the tar into both encoded files
+        let mut builder = Builder::new(Tee(gz, xz));
         for path in paths {
             let path = Path::new(&path);
             let src = Path::new(&self.work_dir).join(path);
@@ -66,25 +71,11 @@ impl Tarballer {
                 builder.append_file(path, &mut src)?;
             }
         }
-        let mut input = builder.into_inner()?;
+        let Tee(gz, xz) = builder.into_inner()?;
 
-        // Write the .tar.xz file
-        let output = fs::File::create(&tar_xz)?;
-        let mut encoded = XzEncoder::new(output, 9);
-        input.seek(SeekFrom::Start(0))?;
-        io::copy(&mut input, &mut encoded)?;
-        encoded.finish()?;
-
-        // Write the .tar.gz file
-        let output = fs::File::create(&tar_gz)?;
-        let mut encoded = GzEncoder::new(output, flate2::Compression::Best);
-        input.seek(SeekFrom::Start(0))?;
-        io::copy(&mut input, &mut encoded)?;
-        encoded.finish()?;
-
-        // Remove the .tar file
-        drop(input);
-        fs::remove_file(&tar)?;
+        // Finish both encoded files
+        gz.finish()?;
+        xz.finish()?;
 
         Ok(())
     }
@@ -108,4 +99,18 @@ fn get_recursive_paths(root: &Path, name: &Path) -> io::Result<Vec<String>> {
         }
     }
     Ok(paths)
+}
+
+struct Tee<A, B>(A, B);
+
+impl<A: Write, B: Write> Write for Tee<A, B> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write_all(buf)
+            .and(self.1.write_all(buf))
+            .and(Ok(buf.len()))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush().and(self.1.flush())
+    }
 }
