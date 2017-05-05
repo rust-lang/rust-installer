@@ -12,6 +12,7 @@ path = "src/main.rs"
 flate2 = "0.2.19"
 tar = "0.4.11"
 walkdir = "1.0.7"
+xz2 = "0.1.3"
 
 [dependencies.clap]
 features = ["yaml"]

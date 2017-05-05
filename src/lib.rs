@@ -11,6 +11,7 @@
 extern crate flate2;
 extern crate tar;
 extern crate walkdir;
+extern crate xz2;
 
 #[macro_use]
 mod util;
