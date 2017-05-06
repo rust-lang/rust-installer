@@ -1,7 +1,4 @@
-addons:
-  apt:
-    packages:
-    - p7zip-full
-
+language: rust
 script:
+  - cargo build
   - ./test.sh
