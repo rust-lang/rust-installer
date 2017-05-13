@@ -83,15 +83,18 @@ impl Combiner {
                 bail!("incorrect installer version in {}", input_tarball);
             }
 
-            // Move components to the new combined installer
+            // Copy components to the new combined installer
             let mut pkg_components = String::new();
             open_file(pkg_dir.join("components"))
                 .and_then(|mut file| file.read_to_string(&mut pkg_components).map_err(Error::from))
                 .chain_err(|| format!("failed to read components in '{}'", input_tarball))?;
             for component in pkg_components.split_whitespace() {
-                // All we need to do is move the component directory
+                // All we need to do is copy the component directory.  We could
+                // move it, but rustbuild wants to reuse the unpacked package
+                // dir for OS-specific installers on macOS and Windows.
                 let component_dir = package_dir.join(&component);
-                rename(&pkg_dir.join(&component), component_dir)?;
+                create_dir(&component_dir)?;
+                copy_recursive(&pkg_dir.join(&component), &component_dir)?;
 
                 // Merge the component name
                 writeln!(&components, "{}", component)
