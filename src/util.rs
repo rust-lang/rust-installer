@@ -79,13 +79,6 @@ pub fn remove_file<P: AsRef<Path>>(path: P) -> Result<()> {
         .chain_err(|| format!("failed to remove file '{}'", path.as_ref().display()))
 }
 
-/// Wrap `fs::rename` with a nicer error message
-pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
-    fs::rename(&from, &to)
-        .chain_err(|| format!("failed to rename '{}' to '{}'",
-                              from.as_ref().display(), to.as_ref().display()))
-}
-
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
 /// when this function is called.
 pub fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {

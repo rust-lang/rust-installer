@@ -946,6 +946,38 @@ list_components() {
 }
 runtest list_components
 
+combined_remains() {
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image1" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rustc \
+	--component-name=rustc
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image3" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=cargo \
+	--component-name=cargo
+    try sh "$S/gen-installer.sh" \
+	--image-dir="$TEST_DIR/image4" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust-docs \
+	--component-name=rust-docs
+    try sh "$S/combine-installers.sh" \
+	--work-dir="$WORK_DIR" \
+	--output-dir="$OUT_DIR" \
+	--package-name=rust \
+	--input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz,$OUT_DIR/rust-docs.tar.gz"
+    for component in rustc cargo rust-docs; do
+	# rustbuild wants the original extracted package intact too
+	try test -d "$WORK_DIR/$component/$component"
+	try test -d "$WORK_DIR/rust/$component"
+    done
+}
+runtest combined_remains
+
 # Upgrade tests
 
 upgrade_from_v1() {
