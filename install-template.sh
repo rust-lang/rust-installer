@@ -699,7 +699,7 @@ install_components() {
 		    critical_need_ok "failed to copy directory"
 
                     # Set permissions. 0755 for dirs, 644 for files
-                    run chmod -R u+rwx,go+rx,go-w "$_file_install_path"
+                    run chmod -R u+rwX,go+rX,go-w "$_file_install_path"
                     critical_need_ok "failed to set permissions on directory"
 
 		    # Update the manifest
