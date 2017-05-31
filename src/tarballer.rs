@@ -8,12 +8,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
 use flate2;
 use flate2::write::GzEncoder;
-use tar::Builder;
+use tar::{Builder, Header};
 use walkdir::WalkDir;
 use xz2::write::XzEncoder;
 
@@ -70,7 +71,8 @@ impl Tarballer {
         }
         for path in files {
             let src = Path::new(&self.work_dir).join(&path);
-            builder.append_file(&path, &mut open_file(&src)?)
+            let file = open_file(&src)?;
+            builder.append_data(&mut header(&src, &file)?, &path, &file)
                 .chain_err(|| format!("failed to tar file '{}'", src.display()))?;
         }
         let Tee(gz, xz) = builder.into_inner()
@@ -82,6 +84,23 @@ impl Tarballer {
 
         Ok(())
     }
+}
+
+fn header(src: &Path, file: &File) -> Result<Header> {
+    let mut header = Header::new_gnu();
+    header.set_metadata(&file.metadata()?);
+    if cfg!(windows) {
+        // Windows doesn't really have a mode, so `tar` never marks files executable.
+        // Use an extension whitelist to update files that usually should be so.
+        const EXECUTABLES: [&'static str; 4] = ["exe", "dll", "py", "sh"];
+        if let Some(ext) = src.extension().and_then(|s| s.to_str()) {
+            if EXECUTABLES.contains(&ext) {
+                let mode = header.mode()?;
+                header.set_mode(mode | 0o111);
+            }
+        }
+    }
+    Ok(header)
 }
 
 /// Returns all `(directories, files)` under the source path
