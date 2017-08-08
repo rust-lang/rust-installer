@@ -621,9 +621,11 @@ install_components() {
 
 		    if echo "$_file" | grep "^bin/" > /dev/null
 		    then
-			run install -m755 "$_src_dir/$_component/$_file" "$_file_install_path"
+			run cp "$_src_dir/$_component/$_file" "$_file_install_path"
+			run chmod 755 "$_file_install_path"
 		    else
-			run install -m644 "$_src_dir/$_component/$_file" "$_file_install_path"
+			run cp "$_src_dir/$_component/$_file" "$_file_install_path"
+			run chmod 644 "$_file_install_path"
 		    fi
 		    critical_need_ok "file creation failed"
 
