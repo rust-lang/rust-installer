@@ -9,8 +9,10 @@
 // except according to those terms.
 
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
+use std::thread;
 
 use flate2;
 use flate2::write::GzEncoder;
@@ -55,15 +57,9 @@ impl Tarballer {
             .chain_err(|| "failed to collect file paths")?;
         files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
-        // Prepare the .tar.gz file
-        let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::Best);
-
-        // Prepare the .tar.xz file
-        let xz = XzEncoder::new(create_new_file(tar_xz)?, 9);
-
         // Write the tar into both encoded files.  We write all directories
         // first, so files may be directly created. (see rustup.rs#1092)
-        let mut builder = Builder::new(Tee(gz, xz));
+        let mut builder = Builder::new(Vec::new());
         for path in dirs {
             let src = Path::new(&self.work_dir).join(&path);
             builder.append_dir(&path, &src)
@@ -75,12 +71,25 @@ impl Tarballer {
             builder.append_data(&mut header(&src, &file)?, &path, &file)
                 .chain_err(|| format!("failed to tar file '{}'", src.display()))?;
         }
-        let Tee(gz, xz) = builder.into_inner()
+        let contents = builder.into_inner()
             .chain_err(|| "failed to finish writing .tar stream")?;
+        let contents = Arc::new(contents);
 
-        // Finish both encoded files
-        gz.finish().chain_err(|| "failed to finish .tar.gz file")?;
-        xz.finish().chain_err(|| "failed to finish .tar.xz file")?;
+        // Prepare the .tar.gz file
+        let contents2 = contents.clone();
+        let t = thread::spawn(move || {
+            let mut gz = GzEncoder::new(create_new_file(tar_gz)?,
+                                        flate2::Compression::Best);
+            gz.write_all(&contents2).chain_err(|| "failed to write .gz")?;
+            gz.finish().chain_err(|| "failed to finish .gz")
+        });
+
+        // Prepare the .tar.xz file
+        let mut xz = XzEncoder::new(create_new_file(tar_xz)?, 9);
+        xz.write_all(&contents).chain_err(|| "failed to write .xz")?;
+        xz.finish().chain_err(|| "failed to finish .xz")?;
+
+        t.join().unwrap()?;
 
         Ok(())
     }
@@ -128,18 +137,4 @@ fn get_recursive_paths<P, Q>(root: P, name: Q) -> Result<(Vec<String>, Vec<Strin
         }
     }
     Ok((dirs, files))
-}
-
-struct Tee<A, B>(A, B);
-
-impl<A: Write, B: Write> Write for Tee<A, B> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write_all(buf)
-            .and(self.1.write_all(buf))
-            .and(Ok(buf.len()))
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.flush().and(self.1.flush())
-    }
 }
