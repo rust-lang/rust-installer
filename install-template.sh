@@ -619,7 +619,7 @@ install_components() {
 
 		    maybe_backup_path "$_file_install_path"
 
-		    if echo "$_file" | grep "^bin/" > /dev/null
+		    if echo "$_file" | grep "^bin/" > /dev/null || test -x "$_src_dir/$_component/$_file"
 		    then
 			run cp "$_src_dir/$_component/$_file" "$_file_install_path"
 			run chmod 755 "$_file_install_path"
