@@ -65,8 +65,8 @@ impl Combiner {
         let components = create_new_file(package_dir.join("components"))?;
         for input_tarball in self.input_tarballs.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             // Extract the input tarballs
-            GzDecoder::new(open_file(&input_tarball)?)
-                .and_then(|tar| Archive::new(tar).unpack(&self.work_dir))
+            let tar = GzDecoder::new(open_file(&input_tarball)?);
+            Archive::new(tar).unpack(&self.work_dir)
                 .chain_err(|| format!("unable to extract '{}' into '{}'",
                                       &input_tarball, self.work_dir))?;
 

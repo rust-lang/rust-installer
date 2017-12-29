@@ -79,7 +79,7 @@ impl Tarballer {
         let contents2 = contents.clone();
         let t = thread::spawn(move || {
             let mut gz = GzEncoder::new(create_new_file(tar_gz)?,
-                                        flate2::Compression::Best);
+                                        flate2::Compression::best());
             gz.write_all(&contents2).chain_err(|| "failed to write .gz")?;
             gz.finish().chain_err(|| "failed to finish .gz")
         });
