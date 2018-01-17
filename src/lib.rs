@@ -11,6 +11,7 @@
 #[macro_use]
 extern crate error_chain;
 extern crate flate2;
+extern crate rayon;
 extern crate tar;
 extern crate walkdir;
 extern crate xz2;
