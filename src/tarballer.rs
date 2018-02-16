@@ -68,7 +68,7 @@ impl Tarballer {
         let buf = BufWriter::with_capacity(1024 * 1024, tee);
         let mut builder = Builder::new(buf);
 
-        let pool = rayon::Configuration::new().num_threads(2).build().unwrap();
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         pool.install(move || {
             for path in dirs {
                 let src = Path::new(&self.work_dir).join(&path);
