@@ -577,6 +577,12 @@ install_components() {
 		_file_install_path="$CFG_LIBDIR/$_f"
 	    fi
 
+	    if echo "$_file" | grep "^share" > /dev/null
+	    then
+		local _f="$(echo "$_file" | sed 's/^share\///')"
+		_file_install_path="$CFG_DATADIR/$_f"
+	    fi
+
 	    if echo "$_file" | grep "^share/man/" > /dev/null
 	    then
 		local _f="$(echo "$_file" | sed 's/^share\/man\///')"
@@ -813,7 +819,9 @@ flag list-components "list available components"
 valopt sysconfdir "$CFG_DESTDIR_PREFIX/etc" "install system configuration files"
 valopt bindir "$CFG_DESTDIR_PREFIX/bin" "install binaries"
 valopt libdir "$CFG_DESTDIR_PREFIX/lib" "install libraries"
-valopt mandir "$CFG_DESTDIR_PREFIX/share/man" "install man pages in PATH"
+valopt datadir "$CFG_DESTDIR_PREFIX/share" "install data"
+# NB We repeat datadir default value because we don't set CFG_DATADIR in --help
+valopt mandir "${CFG_DATADIR-"$CFG_DESTDIR_PREFIX/share"}/man" "install man pages in PATH"
 # NB See the docdir handling in install_components for an explanation of this
 # weird <default> string
 valopt docdir "\<default\>" "install documentation in PATH"
