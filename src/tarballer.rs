@@ -60,7 +60,7 @@ impl Tarballer {
         let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::best());
 
         // Prepare the .tar.xz file
-        let xz = XzEncoder::new(create_new_file(tar_xz)?, 9);
+        let xz = XzEncoder::new(create_new_file(tar_xz)?, 6);
 
         // Write the tar into both encoded files.  We write all directories
         // first, so files may be directly created. (see rustup.rs#1092)
