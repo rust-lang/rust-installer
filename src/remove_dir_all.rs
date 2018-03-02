@@ -25,66 +25,27 @@ pub fn remove_dir_all(path: &Path) -> io::Result<()> {
 
 #[cfg(windows)]
 mod win {
-    use winapi::{
-        FileBasicInfo,
-        FILE_BASIC_INFO,
-        FALSE,
-        FileRenameInfo,
-        FILE_RENAME_INFO,
-        c_ushort,
-        c_uint,
-        FILETIME,
-        FILE_ATTRIBUTE_READONLY,
-        FILE_ATTRIBUTE_REPARSE_POINT,
-        FILE_ATTRIBUTE_DIRECTORY,
-        WIN32_FIND_DATAW,
-        ERROR_NO_MORE_FILES,
-        OPEN_EXISTING,
-        OPEN_ALWAYS,
-        TRUNCATE_EXISTING,
-        CREATE_ALWAYS,
-        CREATE_NEW,
-        GENERIC_READ,
-        GENERIC_WRITE,
-        FILE_GENERIC_WRITE,
-        FILE_WRITE_DATA,
-        FILE_SHARE_READ,
-        FILE_SHARE_WRITE,
-        FILE_SHARE_DELETE,
-        FILE_FLAG_DELETE_ON_CLOSE,
-        DELETE,
-        FILE_WRITE_ATTRIBUTES,
-        FILE_INFO_BY_HANDLE_CLASS,
-        HANDLE,
-        ERROR_INSUFFICIENT_BUFFER,
-        FILE_READ_ATTRIBUTES,
-        FILE_FLAG_BACKUP_SEMANTICS,
-        FILE_FLAG_OPEN_REPARSE_POINT,
-        ERROR_CALL_NOT_IMPLEMENTED,
-        DWORD,
-        BOOL,
-        LPVOID,
-        INVALID_HANDLE_VALUE,
-        LPCWSTR,
-        SECURITY_SQOS_PRESENT,
-        FSCTL_GET_REPARSE_POINT,
-        BY_HANDLE_FILE_INFORMATION,
-        IO_REPARSE_TAG_SYMLINK,
-        IO_REPARSE_TAG_MOUNT_POINT,
-    };
-
-    use kernel32::{
-        CreateFileW,
-        GetFileInformationByHandle,
-        CloseHandle,
-        GetLastError,
-        SetLastError,
-        DeviceIoControl,
-        GetModuleHandleW,
-        GetProcAddress,
-        FindNextFileW,
-        FindFirstFileW,
-    };
+    use winapi::ctypes::{c_ushort, c_uint};
+    use winapi::shared::minwindef::{BOOL, DWORD, FALSE, FILETIME, LPVOID};
+    use winapi::shared::winerror::{ERROR_CALL_NOT_IMPLEMENTED, ERROR_INSUFFICIENT_BUFFER, ERROR_NO_MORE_FILES};
+    use winapi::um::errhandlingapi::{GetLastError, SetLastError};
+    use winapi::um::fileapi::{BY_HANDLE_FILE_INFORMATION, CREATE_ALWAYS, CREATE_NEW};
+    use winapi::um::fileapi::{FILE_BASIC_INFO, FILE_RENAME_INFO, TRUNCATE_EXISTING};
+    use winapi::um::fileapi::{OPEN_ALWAYS, OPEN_EXISTING};
+    use winapi::um::fileapi::{CreateFileW, GetFileInformationByHandle, FindFirstFileW, FindNextFileW};
+    use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+    use winapi::um::ioapiset::DeviceIoControl;
+    use winapi::um::libloaderapi::{GetProcAddress, GetModuleHandleW};
+    use winapi::um::minwinbase::{FileBasicInfo, FileRenameInfo, FILE_INFO_BY_HANDLE_CLASS, WIN32_FIND_DATAW};
+    use winapi::um::winbase::{FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_DELETE_ON_CLOSE, FILE_FLAG_OPEN_REPARSE_POINT};
+    use winapi::um::winbase::SECURITY_SQOS_PRESENT;
+    use winapi::um::winioctl::FSCTL_GET_REPARSE_POINT;
+    use winapi::um::winnt::{FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_READONLY};
+    use winapi::um::winnt::{FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE};
+    use winapi::um::winnt::{FILE_WRITE_ATTRIBUTES, FILE_READ_ATTRIBUTES};
+    use winapi::um::winnt::{FILE_WRITE_DATA, FILE_GENERIC_WRITE, GENERIC_READ, GENERIC_WRITE};
+    use winapi::um::winnt::{LARGE_INTEGER, IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK};
+    use winapi::um::winnt::{LPCWSTR, DELETE, FILE_ATTRIBUTE_DIRECTORY, HANDLE};
 
     use std::ptr;
     use std::sync::Arc;
@@ -525,11 +486,15 @@ mod win {
         }
 
         fn set_attributes(&self, attr: DWORD) -> io::Result<()> {
+            let zero: LARGE_INTEGER = unsafe {
+                mem::zeroed()
+            };
+
             let mut info = FILE_BASIC_INFO {
-                CreationTime: 0, // do not change
-                LastAccessTime: 0, // do not change
-                LastWriteTime: 0, // do not change
-                ChangeTime: 0, // do not change
+                CreationTime: zero, // do not change
+                LastAccessTime: zero, // do not change
+                LastWriteTime: zero, // do not change
+                ChangeTime: zero, // do not change
                 FileAttributes: attr,
             };
             let size = mem::size_of_val(&info);
@@ -560,7 +525,7 @@ mod win {
             unsafe {
                 // Thanks to alignment guarantees on Windows this works
                 // (8 for 32-bit and 16 for 64-bit)
-                let mut info = data.as_mut_ptr() as *mut FILE_RENAME_INFO;
+                let info = data.as_mut_ptr() as *mut FILE_RENAME_INFO;
                 // The type of ReplaceIfExists is BOOL, but it actually expects a
                 // BOOLEAN. This means true is -1, not c::TRUE.
                 (*info).ReplaceIfExists = if replace { -1 } else { FALSE };

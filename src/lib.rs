@@ -19,8 +19,6 @@ extern crate xz2;
 #[cfg(windows)]
 extern crate winapi;
 #[cfg(windows)]
-extern crate kernel32;
-#[cfg(windows)]
 #[macro_use]
 extern crate lazy_static;
 
