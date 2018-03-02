@@ -13,7 +13,7 @@ error-chain = "0.11.0"
 flate2 = "1.0.1"
 rayon = "1.0"
 tar = "0.4.13"
-walkdir = "1.0.7"
+walkdir = "2"
 xz2 = "0.1.4"
 
 [dependencies.clap]
