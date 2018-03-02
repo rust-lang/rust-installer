@@ -21,6 +21,6 @@ features = ["yaml"]
 version = "2.19.0"
 
 [target."cfg(windows)".dependencies]
-lazy_static = "0.2.8"
+lazy_static = "1"
 kernel32-sys = "0.2.2"
 winapi = "0.2.8"
