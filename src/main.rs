@@ -7,6 +7,7 @@ extern crate installer;
 use errors::*;
 use clap::{App, ArgMatches};
 
+#[allow(warnings)]
 mod errors {
     error_chain!{
         links {
