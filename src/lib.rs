@@ -22,7 +22,6 @@ extern crate winapi;
 #[macro_use]
 extern crate lazy_static;
 
-#[allow(warnings)]
 mod errors {
     error_chain!{
         foreign_links {
