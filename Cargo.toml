@@ -9,7 +9,7 @@ name = "fabricate"
 path = "src/main.rs"
 
 [dependencies]
-error-chain = "0.11.0"
+error-chain = "0.12.0"
 flate2 = "1.0.1"
 rayon = "1.0"
 tar = "0.4.13"
