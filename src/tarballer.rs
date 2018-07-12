@@ -8,8 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fs::File;
-use std::io::{self, Write, BufWriter};
+use std::fs::{read_link, symlink_metadata};
+use std::io::{self, empty, Write, BufWriter};
 use std::path::Path;
 
 use flate2;
@@ -77,8 +77,7 @@ impl Tarballer {
             }
             for path in files {
                 let src = Path::new(&self.work_dir).join(&path);
-                let file = open_file(&src)?;
-                builder.append_data(&mut header(&src, &file)?, &path, &file)
+                append_path(&mut builder, &src, &path)
                     .chain_err(|| format!("failed to tar file '{}'", src.display()))?;
             }
             let RayonTee(xz, gz) = builder.into_inner()
@@ -95,21 +94,30 @@ impl Tarballer {
     }
 }
 
-fn header(src: &Path, file: &File) -> Result<Header> {
+fn append_path<W: Write>(builder: &mut Builder<W>, src: &Path, path: &String) -> Result<()> {
+    let stat = symlink_metadata(src)?;
     let mut header = Header::new_gnu();
-    header.set_metadata(&file.metadata()?);
-    if cfg!(windows) {
-        // Windows doesn't really have a mode, so `tar` never marks files executable.
-        // Use an extension whitelist to update files that usually should be so.
-        const EXECUTABLES: [&'static str; 4] = ["exe", "dll", "py", "sh"];
-        if let Some(ext) = src.extension().and_then(|s| s.to_str()) {
-            if EXECUTABLES.contains(&ext) {
-                let mode = header.mode()?;
-                header.set_mode(mode | 0o111);
+    header.set_metadata(&stat);
+    if stat.file_type().is_symlink() {
+        let link = read_link(src)?;
+        header.set_link_name(&link)?;
+        builder.append_data(&mut header, path, &mut empty())?;
+    } else {
+        if cfg!(windows) {
+            // Windows doesn't really have a mode, so `tar` never marks files executable.
+            // Use an extension whitelist to update files that usually should be so.
+            const EXECUTABLES: [&'static str; 4] = ["exe", "dll", "py", "sh"];
+            if let Some(ext) = src.extension().and_then(|s| s.to_str()) {
+                if EXECUTABLES.contains(&ext) {
+                    let mode = header.mode()?;
+                    header.set_mode(mode | 0o111);
+                }
             }
         }
+        let file = open_file(src)?;
+        builder.append_data(&mut header, path, &file)?;
     }
-    Ok(header)
+    Ok(())
 }
 
 /// Returns all `(directories, files)` under the source path
