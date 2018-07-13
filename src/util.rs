@@ -18,6 +18,11 @@ use walkdir::WalkDir;
 use std::os::unix::fs::OpenOptionsExt;
 // FIXME: what about Windows?  Are default ACLs executable?
 
+#[cfg(unix)]
+use std::os::unix::fs::symlink as symlink_file;
+#[cfg(windows)]
+use std::os::windows::fs::symlink_file;
+
 use errors::*;
 
 /// Convert a `&Path` to a UTF-8 `&str`
@@ -29,9 +34,15 @@ pub fn path_to_str(path: &Path) -> Result<&str> {
 
 /// Wrap `fs::copy` with a nicer error message
 pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
-    fs::copy(&from, &to)
-        .chain_err(|| format!("failed to copy '{}' to '{}'",
-                              from.as_ref().display(), to.as_ref().display()))
+    if fs::symlink_metadata(&from)?.file_type().is_symlink() {
+        let link = fs::read_link(&from)?;
+        symlink_file(link, &to)?;
+        Ok(0)
+    } else {
+        fs::copy(&from, &to)
+            .chain_err(|| format!("failed to copy '{}' to '{}'",
+                                  from.as_ref().display(), to.as_ref().display()))
+    }
 }
 
 /// Wrap `fs::create_dir` with a nicer error message
