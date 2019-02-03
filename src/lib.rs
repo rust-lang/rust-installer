@@ -10,11 +10,6 @@
 
 #[macro_use]
 extern crate error_chain;
-use flate2;
-use rayon;
-
-
-
 
 #[cfg(windows)]
 extern crate winapi;

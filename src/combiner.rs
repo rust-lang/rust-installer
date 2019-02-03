@@ -70,7 +70,7 @@ impl Combiner {
                 .chain_err(|| format!("unable to extract '{}' into '{}'",
                                       &input_tarball, self.work_dir))?;
 
-            let pkg_name = input_tarball.trim_right_matches(".tar.gz");
+            let pkg_name = input_tarball.trim_end_matches(".tar.gz");
             let pkg_name = Path::new(pkg_name).file_name().unwrap();
             let pkg_dir = Path::new(&self.work_dir).join(&pkg_name);
 
