@@ -19,8 +19,8 @@ use tar::{Builder, Header};
 use walkdir::WalkDir;
 use xz2::write::XzEncoder;
 
-use errors::*;
-use util::*;
+use crate::errors::*;
+use crate::util::*;
 
 actor!{
     #[derive(Debug)]

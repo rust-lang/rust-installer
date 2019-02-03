@@ -2,9 +2,9 @@
 extern crate clap;
 #[macro_use]
 extern crate error_chain;
-extern crate installer;
+use installer;
 
-use errors::*;
+use crate::errors::*;
 use clap::{App, ArgMatches};
 
 mod errors {
@@ -41,7 +41,7 @@ macro_rules! parse(
     }
 );
 
-fn combine(matches: &ArgMatches) -> Result<()> {
+fn combine(matches: &ArgMatches<'_>) -> Result<()> {
     let combiner = parse!(matches => installer::Combiner {
         "product-name" => product_name,
         "package-name" => package_name,
@@ -57,7 +57,7 @@ fn combine(matches: &ArgMatches) -> Result<()> {
     combiner.run().chain_err(|| "failed to combine installers")
 }
 
-fn generate(matches: &ArgMatches) -> Result<()> {
+fn generate(matches: &ArgMatches<'_>) -> Result<()> {
     let generator = parse!(matches => installer::Generator {
         "product-name" => product_name,
         "component-name" => component_name,
@@ -75,7 +75,7 @@ fn generate(matches: &ArgMatches) -> Result<()> {
     generator.run().chain_err(|| "failed to generate installer")
 }
 
-fn script(matches: &ArgMatches) -> Result<()> {
+fn script(matches: &ArgMatches<'_>) -> Result<()> {
     let scripter = parse!(matches => installer::Scripter {
         "product-name" => product_name,
         "rel-manifest-dir" => rel_manifest_dir,
@@ -87,7 +87,7 @@ fn script(matches: &ArgMatches) -> Result<()> {
     scripter.run().chain_err(|| "failed to generate installation script")
 }
 
-fn tarball(matches: &ArgMatches) -> Result<()> {
+fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
     let tarballer = parse!(matches => installer::Tarballer {
         "input" => input,
         "output" => output,

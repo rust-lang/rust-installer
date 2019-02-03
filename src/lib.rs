@@ -10,11 +10,11 @@
 
 #[macro_use]
 extern crate error_chain;
-extern crate flate2;
-extern crate rayon;
-extern crate tar;
-extern crate walkdir;
-extern crate xz2;
+use flate2;
+use rayon;
+
+
+
 
 #[cfg(windows)]
 extern crate winapi;
@@ -43,11 +43,11 @@ mod generator;
 mod scripter;
 mod tarballer;
 
-pub use errors::{Result, Error, ErrorKind};
-pub use combiner::Combiner;
-pub use generator::Generator;
-pub use scripter::Scripter;
-pub use tarballer::Tarballer;
+pub use crate::errors::{Result, Error, ErrorKind};
+pub use crate::combiner::Combiner;
+pub use crate::generator::Generator;
+pub use crate::scripter::Scripter;
+pub use crate::tarballer::Tarballer;
 
 /// The installer version, output only to be used by combine-installers.sh.
 /// (should match `SOURCE_DIRECTORY/rust_installer_version`)

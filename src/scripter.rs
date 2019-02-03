@@ -10,8 +10,8 @@
 
 use std::io::Write;
 
-use errors::*;
-use util::*;
+use crate::errors::*;
+use crate::util::*;
 
 const TEMPLATE: &'static str = include_str!("../install-template.sh");
 
@@ -52,7 +52,7 @@ impl Scripter {
             .replace("%%TEMPLATE_REL_MANIFEST_DIR%%", &self.rel_manifest_dir)
             .replace("%%TEMPLATE_SUCCESS_MESSAGE%%", &sh_quote(&success_message))
             .replace("%%TEMPLATE_LEGACY_MANIFEST_DIRS%%", &sh_quote(&self.legacy_manifest_dirs))
-            .replace("%%TEMPLATE_RUST_INSTALLER_VERSION%%", &sh_quote(&::RUST_INSTALLER_VERSION));
+            .replace("%%TEMPLATE_RUST_INSTALLER_VERSION%%", &sh_quote(&crate::RUST_INSTALLER_VERSION));
 
         create_new_executable(&self.output_script)?
             .write_all(script.as_ref())
