@@ -13,10 +13,10 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar::Archive;
 
-use errors::*;
+use crate::errors::*;
 use super::Scripter;
 use super::Tarballer;
-use util::*;
+use crate::util::*;
 
 actor!{
     #[derive(Debug)]
@@ -70,7 +70,7 @@ impl Combiner {
                 .chain_err(|| format!("unable to extract '{}' into '{}'",
                                       &input_tarball, self.work_dir))?;
 
-            let pkg_name = input_tarball.trim_right_matches(".tar.gz");
+            let pkg_name = input_tarball.trim_end_matches(".tar.gz");
             let pkg_name = Path::new(pkg_name).file_name().unwrap();
             let pkg_dir = Path::new(&self.work_dir).join(&pkg_name);
 
@@ -79,7 +79,7 @@ impl Combiner {
             open_file(pkg_dir.join("rust-installer-version"))
                 .and_then(|mut file| file.read_to_string(&mut version).map_err(Error::from))
                 .chain_err(|| format!("failed to read version in '{}'", input_tarball))?;
-            if version.trim().parse() != Ok(::RUST_INSTALLER_VERSION) {
+            if version.trim().parse() != Ok(crate::RUST_INSTALLER_VERSION) {
                 bail!("incorrect installer version in {}", input_tarball);
             }
 
@@ -105,7 +105,7 @@ impl Combiner {
 
         // Write the installer version
         let version = package_dir.join("rust-installer-version");
-        writeln!(create_new_file(version)?, "{}", ::RUST_INSTALLER_VERSION)
+        writeln!(create_new_file(version)?, "{}", crate::RUST_INSTALLER_VERSION)
             .chain_err(|| "failed to write new installer version")?;
 
         // Copy the overlay

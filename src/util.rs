@@ -23,7 +23,7 @@ use std::os::unix::fs::symlink as symlink_file;
 #[cfg(windows)]
 use std::os::windows::fs::symlink_file;
 
-use errors::*;
+use crate::errors::*;
 
 /// Convert a `&Path` to a UTF-8 `&str`
 pub fn path_to_str(path: &Path) -> Result<&str> {
@@ -80,7 +80,7 @@ pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
 
 /// Wrap `remove_dir_all` with a nicer error message
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
-    ::remove_dir_all::remove_dir_all(path.as_ref())
+    crate::remove_dir_all::remove_dir_all(path.as_ref())
         .chain_err(|| format!("failed to remove dir '{}'", path.as_ref().display()))
 }
 
