@@ -57,7 +57,7 @@ mod win {
         // already need write permission in this dir to delete the directory. And it
         // should be on the same volume.
         //
-        // To handle files with names like `CON` and `morse .. .`,  and when a
+        // To handle files with names like `CON` and `morse .. .`, and when a
         // directory structure is so deep it needs long path names the path is first
         // converted to a `//?/`-path with `get_path()`.
         //

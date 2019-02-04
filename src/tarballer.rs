@@ -15,24 +15,24 @@ use crate::util::*;
 actor!{
     #[derive(Debug)]
     pub struct Tarballer {
-        /// The input folder to be compressed
+        /// The input folder to be compressed.
         input: String = "package",
 
-        /// The prefix of the tarballs
+        /// The prefix of the tarballs.
         output: String = "./dist",
 
-        /// The folder in which the input is to be found
+        /// The folder in which the input is to be found.
         work_dir: String = "./workdir",
     }
 }
 
 impl Tarballer {
-    /// Generate the actual tarballs
+    /// Generates the actual tarballs
     pub fn run(self) -> Result<()> {
         let tar_gz = self.output.clone() + ".tar.gz";
         let tar_xz = self.output.clone() + ".tar.xz";
 
-        // Remove any existing files
+        // Remove any existing files.
         for file in &[&tar_gz, &tar_xz] {
             if Path::new(file).exists() {
                 remove_file(file)?;
@@ -46,14 +46,14 @@ impl Tarballer {
             .chain_err(|| "failed to collect file paths")?;
         files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
-        // Prepare the .tar.gz file
+        // Prepare the `.tar.gz` file.
         let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::best());
 
-        // Prepare the .tar.xz file
+        // Prepare the `.tar.xz` file.
         let xz = XzEncoder::new(create_new_file(tar_xz)?, 6);
 
-        // Write the tar into both encoded files.  We write all directories
-        // first, so files may be directly created. (see rustup.rs#1092)
+        // Write the tar into both encoded files. We write all directories
+        // first, so files may be directly created. (See rust-lang/rustup.rs#1092.)
         let tee = RayonTee(xz, gz);
         let buf = BufWriter::with_capacity(1024 * 1024, tee);
         let mut builder = Builder::new(buf);
@@ -74,7 +74,7 @@ impl Tarballer {
                 .chain_err(|| "failed to finish writing .tar stream")?
                 .into_inner().ok().unwrap();
 
-            // Finish both encoded files
+            // Finish both encoded files.
             let (rxz, rgz) = rayon::join(
                 || xz.finish().chain_err(|| "failed to finish .tar.xz file"),
                 || gz.finish().chain_err(|| "failed to finish .tar.gz file"),
@@ -110,7 +110,7 @@ fn append_path<W: Write>(builder: &mut Builder<W>, src: &Path, path: &String) ->
     Ok(())
 }
 
-/// Returns all `(directories, files)` under the source path
+/// Returns all `(directories, files)` under the source path.
 fn get_recursive_paths<P, Q>(root: P, name: Q) -> Result<(Vec<String>, Vec<String>)>
     where P: AsRef<Path>, Q: AsRef<Path>
 {

@@ -45,7 +45,7 @@ actor!{
 }
 
 impl Generator {
-    /// Generate the actual installer tarball
+    /// Generates the actual installer tarball
     pub fn run(self) -> Result<()> {
         create_dir_all(&self.work_dir)?;
 
