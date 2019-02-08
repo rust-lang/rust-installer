@@ -103,8 +103,8 @@ mod win {
             opts.access_mode(FILE_READ_ATTRIBUTES);
             opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS |
                               FILE_FLAG_OPEN_REPARSE_POINT);
-            let file = r#try!(File::open(path, &opts));
-            (r#try!(get_path(&file)), r#try!(file.file_attr()))
+            let file = File::open(path, &opts)?;
+            (get_path(&file)?, file.file_attr()?)
         };
 
         let mut ctx = RmdirContext {
@@ -131,7 +131,7 @@ mod win {
     fn readdir(p: &Path) -> io::Result<ReadDir> {
         let root = p.to_path_buf();
         let star = p.join("*");
-        let path = r#try!(to_u16s(&star));
+        let path = to_u16s(&star)?;
 
         unsafe {
             let mut wfd = mem::zeroed();
@@ -157,14 +157,14 @@ mod win {
     fn remove_dir_all_recursive(path: &Path, ctx: &mut RmdirContext)
                                 -> io::Result<()> {
         let dir_readonly = ctx.readonly;
-        for child in r#try!(readdir(path)) {
-            let child = r#try!(child);
-            let child_type = r#try!(child.file_type());
-            ctx.readonly = r#try!(child.metadata()).perm().readonly();
+        for child in readdir(path)? {
+            let child = child?;
+            let child_type = child.file_type()?;
+            ctx.readonly = child.metadata()?.perm().readonly();
             if child_type.is_dir() {
-                r#try!(remove_dir_all_recursive(&child.path(), ctx));
+                remove_dir_all_recursive(&child.path(), ctx)?;
             } else {
-                r#try!(remove_item(&child.path().as_ref(), ctx));
+                remove_item(&child.path().as_ref(), ctx)?;
             }
         }
         ctx.readonly = dir_readonly;
@@ -178,11 +178,11 @@ mod win {
             opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS | // delete directory
                               FILE_FLAG_OPEN_REPARSE_POINT | // delete symlink
                               FILE_FLAG_DELETE_ON_CLOSE);
-            let file = r#try!(File::open(path, &opts));
+            let file = File::open(path, &opts)?;
             move_item(&file, ctx)
         } else {
             // remove read-only permision
-            r#try!(set_perm(&path, FilePermissions::new()));
+            set_perm(&path, FilePermissions::new())?;
             // move and delete file, similar to !readonly.
             // only the access mode is different.
             let mut opts = OpenOptions::new();
@@ -190,8 +190,8 @@ mod win {
             opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS |
                               FILE_FLAG_OPEN_REPARSE_POINT |
                               FILE_FLAG_DELETE_ON_CLOSE);
-            let file = r#try!(File::open(path, &opts));
-            r#try!(move_item(&file, ctx));
+            let file = File::open(path, &opts)?;
+            move_item(&file, ctx)?;
             // restore read-only flag just in case there are other hard links
             let mut perm = FilePermissions::new();
             perm.set_readonly(true);
@@ -445,13 +445,13 @@ mod win {
 
     impl File {
         fn open(path: &Path, opts: &OpenOptions) -> io::Result<File> {
-            let path = r#try!(to_u16s(path));
+            let path = to_u16s(path)?;
             let handle = unsafe {
                 CreateFileW(path.as_ptr(),
-                            r#try!(opts.get_access_mode()),
+                            opts.get_access_mode()?,
                             opts.share_mode,
                             opts.security_attributes as *mut _,
-                            r#try!(opts.get_creation_mode()),
+                            opts.get_creation_mode()?,
                             opts.get_flags_and_attributes(),
                             ptr::null_mut())
             };
@@ -465,8 +465,8 @@ mod win {
         fn file_attr(&self) -> io::Result<FileAttr> {
             unsafe {
                 let mut info: BY_HANDLE_FILE_INFORMATION = mem::zeroed();
-                r#try!(cvt(GetFileInformationByHandle(self.handle.raw(),
-                                                    &mut info)));
+                cvt(GetFileInformationByHandle(self.handle.raw(),
+                                                    &mut info))?;
                 let mut attr = FileAttr {
                     attributes: info.dwFileAttributes,
                     creation_time: info.ftCreationTime,
@@ -498,12 +498,12 @@ mod win {
                 FileAttributes: attr,
             };
             let size = mem::size_of_val(&info);
-            r#try!(cvt(unsafe {
+            cvt(unsafe {
                 SetFileInformationByHandle(self.handle.raw(),
                                            FileBasicInfo,
                                            &mut info as *mut _ as *mut _,
                                            size as DWORD)
-            }));
+            })?;
             Ok(())
         }
 
@@ -531,15 +531,15 @@ mod win {
                 (*info).ReplaceIfExists = if replace { -1 } else { FALSE };
                 (*info).RootDirectory = ptr::null_mut();
                 (*info).FileNameLength = (size - STRUCT_SIZE) as DWORD;
-                r#try!(cvt(SetFileInformationByHandle(self.handle().raw(),
+                cvt(SetFileInformationByHandle(self.handle().raw(),
                                                     FileRenameInfo,
                                                     data.as_mut_ptr() as *mut _ as *mut _,
-                                                    size as DWORD)));
+                                                    size as DWORD))?;
                 Ok(())
             }
         }
         fn set_perm(&self, perm: FilePermissions) -> io::Result<()> {
-            let attr = r#try!(self.file_attr()).attributes;
+            let attr = self.file_attr()?.attributes;
             if perm.readonly == (attr & FILE_ATTRIBUTE_READONLY != 0) {
                 Ok(())
             } else if perm.readonly {
@@ -556,7 +556,7 @@ mod win {
                              -> io::Result<(DWORD, &'a REPARSE_DATA_BUFFER)> {
             unsafe {
                 let mut bytes = 0;
-                r#try!(cvt({
+                cvt({
                     DeviceIoControl(self.handle.raw(),
                                     FSCTL_GET_REPARSE_POINT,
                                     ptr::null_mut(),
@@ -565,7 +565,7 @@ mod win {
                                     space.len() as DWORD,
                                     &mut bytes,
                                     ptr::null_mut())
-                }));
+                })?;
                 Ok((bytes, &*(space.as_ptr() as *const REPARSE_DATA_BUFFER)))
             }
         }
@@ -792,7 +792,7 @@ mod win {
         let mut opts = OpenOptions::new();
         opts.access_mode(FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES);
         opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS);
-        let file = r#try!(File::open(path, &opts));
+        let file = File::open(path, &opts)?;
         file.set_perm(perm)
     }
 
