@@ -1,13 +1,3 @@
-// Copyright 2014 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 #![allow(non_snake_case)]
 
 use std::path::Path;
@@ -67,7 +57,7 @@ mod win {
         // already need write permission in this dir to delete the directory. And it
         // should be on the same volume.
         //
-        // To handle files with names like `CON` and `morse .. .`,  and when a
+        // To handle files with names like `CON` and `morse .. .`, and when a
         // directory structure is so deep it needs long path names the path is first
         // converted to a `//?/`-path with `get_path()`.
         //

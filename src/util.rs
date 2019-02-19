@@ -1,13 +1,3 @@
-// Copyright 2017 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 
 use std::fs;
 use std::path::Path;
@@ -16,7 +6,7 @@ use walkdir::WalkDir;
 // Needed to set the script mode to executable.
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
-// FIXME: what about Windows?  Are default ACLs executable?
+// FIXME: what about Windows? Are default ACLs executable?
 
 #[cfg(unix)]
 use std::os::unix::fs::symlink as symlink_file;
@@ -25,14 +15,14 @@ use std::os::windows::fs::symlink_file;
 
 use crate::errors::*;
 
-/// Convert a `&Path` to a UTF-8 `&str`
+/// Converts a `&Path` to a UTF-8 `&str`.
 pub fn path_to_str(path: &Path) -> Result<&str> {
     path.to_str().ok_or_else(|| {
         ErrorKind::Msg(format!("path is not valid UTF-8 '{}'", path.display())).into()
     })
 }
 
-/// Wrap `fs::copy` with a nicer error message
+/// Wraps `fs::copy` with a nicer error message.
 pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
     if fs::symlink_metadata(&from)?.file_type().is_symlink() {
         let link = fs::read_link(&from)?;
@@ -45,19 +35,19 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
     }
 }
 
-/// Wrap `fs::create_dir` with a nicer error message
+/// Wraps `fs::create_dir` with a nicer error message.
 pub fn create_dir<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir(&path)
         .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
 }
 
-/// Wrap `fs::create_dir_all` with a nicer error message
+/// Wraps `fs::create_dir_all` with a nicer error message.
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir_all(&path)
         .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
 }
 
-/// Wrap `fs::OpenOptions::create_new().open()` as executable, with a nicer error message
+/// Wraps `fs::OpenOptions::create_new().open()` as executable, with a nicer error message.
 pub fn create_new_executable<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     let mut options = fs::OpenOptions::new();
     options.write(true).create_new(true);
@@ -66,19 +56,19 @@ pub fn create_new_executable<P: AsRef<Path>>(path: P) -> Result<fs::File> {
         .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
 }
 
-/// Wrap `fs::OpenOptions::create_new().open()`, with a nicer error message
+/// Wraps `fs::OpenOptions::create_new().open()`, with a nicer error message.
 pub fn create_new_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     fs::OpenOptions::new().write(true).create_new(true).open(&path)
         .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
 }
 
-/// Wrap `fs::File::open()` with a nicer error message
+/// Wraps `fs::File::open()` with a nicer error message.
 pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     fs::File::open(&path)
         .chain_err(|| format!("failed to open file '{}'", path.as_ref().display()))
 }
 
-/// Wrap `remove_dir_all` with a nicer error message
+/// Wraps `remove_dir_all` with a nicer error message.
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     crate::remove_dir_all::remove_dir_all(path.as_ref())
         .chain_err(|| format!("failed to remove dir '{}'", path.as_ref().display()))
@@ -97,7 +87,7 @@ pub fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
 }
 
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
-/// when this function is called.  Invokes a callback for each path visited.
+/// when this function is called. Invokes a callback for each path visited.
 pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> Result<()>
     where F: FnMut(&Path, fs::FileType) -> Result<()>
 {
@@ -118,7 +108,7 @@ pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> Result<
 }
 
 
-/// Create an "actor" with default values and setters for all fields.
+/// Creates an "actor" with default values and setters for all fields.
 macro_rules! actor {
     ($( #[ $attr:meta ] )+ pub struct $name:ident {
         $( $( #[ $field_attr:meta ] )+ $field:ident : $type:ty = $default:expr, )*
