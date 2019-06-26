@@ -4,5 +4,5 @@ rust:
   - beta
   - nightly
 script:
-  - cargo build
+  - LZMA_API_STATIC=1 cargo build
   - ./test.sh
