@@ -1,21 +1,4 @@
-#[macro_use]
-extern crate error_chain;
-
-#[cfg(windows)]
-extern crate winapi;
-#[cfg(windows)]
-#[macro_use]
-extern crate lazy_static;
-
-mod errors {
-    error_chain! {
-        foreign_links {
-            Io(::std::io::Error);
-            StripPrefix(::std::path::StripPrefixError);
-            WalkDir(::walkdir::Error);
-        }
-    }
-}
+pub type Result<T> = std::result::Result<T, failure::Error>;
 
 #[macro_use]
 mod util;
@@ -29,7 +12,6 @@ mod scripter;
 mod tarballer;
 
 pub use crate::combiner::Combiner;
-pub use crate::errors::{Error, ErrorKind, Result};
 pub use crate::generator::Generator;
 pub use crate::scripter::Scripter;
 pub use crate::tarballer::Tarballer;

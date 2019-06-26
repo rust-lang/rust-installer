@@ -1,10 +1,10 @@
-use std::io::Write;
-use std::path::Path;
-
 use super::Scripter;
 use super::Tarballer;
-use crate::errors::*;
 use crate::util::*;
+use crate::Result;
+use failure::{format_err, bail, ResultExt};
+use std::io::Write;
+use std::path::Path;
 
 actor! {
     #[derive(Debug)]
@@ -62,7 +62,7 @@ impl Generator {
         // Write the component name
         let components = package_dir.join("components");
         writeln!(create_new_file(components)?, "{}", self.component_name)
-            .chain_err(|| "failed to write the component file")?;
+            .with_context(|_| "failed to write the component file")?;
 
         // Write the installer version (only used by combine-installers.sh)
         let version = package_dir.join("rust-installer-version");
@@ -71,7 +71,7 @@ impl Generator {
             "{}",
             crate::RUST_INSTALLER_VERSION
         )
-        .chain_err(|| "failed to write new installer version")?;
+        .with_context(|_| "failed to write new installer version")?;
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
@@ -128,7 +128,7 @@ fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> Result<()> {
         // Normalize to Unix-style path separators.
         let normalized_string;
         let mut string = path.to_str().ok_or_else(|| {
-            format!(
+            format_err!(
                 "rust-installer doesn't support non-Unicode paths: {:?}",
                 path
             )

@@ -1,6 +1,6 @@
 use std::io::Write;
-
-use crate::errors::*;
+use failure::ResultExt;
+use crate::Result;
 use crate::util::*;
 
 const TEMPLATE: &'static str = include_str!("../install-template.sh");
@@ -51,7 +51,9 @@ impl Scripter {
 
         create_new_executable(&self.output_script)?
             .write_all(script.as_ref())
-            .chain_err(|| format!("failed to write output script '{}'", self.output_script))
+            .with_context(|_| format!("failed to write output script '{}'", self.output_script))?;
+
+        Ok(())
     }
 }
 

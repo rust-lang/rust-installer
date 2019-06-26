@@ -1,24 +1,9 @@
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate error_chain;
-use installer;
-
-use crate::errors::*;
 use clap::{App, ArgMatches};
+use failure::ResultExt;
+use installer::Result;
 
-mod errors {
-    error_chain! {
-        links {
-            Installer(::installer::Error, ::installer::ErrorKind);
-        }
-    }
-}
-
-quick_main!(run);
-
-fn run() -> Result<()> {
-    let yaml = load_yaml!("main.yml");
+fn main() -> Result<()> {
+    let yaml = clap::load_yaml!("main.yml");
     let matches = App::from_yaml(yaml).get_matches();
 
     match matches.subcommand() {
@@ -54,7 +39,10 @@ fn combine(matches: &ArgMatches<'_>) -> Result<()> {
         "output-dir" => output_dir,
     });
 
-    combiner.run().chain_err(|| "failed to combine installers")
+    combiner
+        .run()
+        .with_context(|_| "failed to combine installers")?;
+    Ok(())
 }
 
 fn generate(matches: &ArgMatches<'_>) -> Result<()> {
@@ -72,7 +60,10 @@ fn generate(matches: &ArgMatches<'_>) -> Result<()> {
         "output-dir" => output_dir,
     });
 
-    generator.run().chain_err(|| "failed to generate installer")
+    generator
+        .run()
+        .with_context(|_| "failed to generate installer")?;
+    Ok(())
 }
 
 fn script(matches: &ArgMatches<'_>) -> Result<()> {
@@ -86,7 +77,8 @@ fn script(matches: &ArgMatches<'_>) -> Result<()> {
 
     scripter
         .run()
-        .chain_err(|| "failed to generate installation script")
+        .with_context(|_| "failed to generate installation script")?;
+    Ok(())
 }
 
 fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
@@ -96,5 +88,8 @@ fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
         "work-dir" => work_dir,
     });
 
-    tarballer.run().chain_err(|| "failed to generate tarballs")
+    tarballer
+        .run()
+        .with_context(|_| "failed to generate tarballs")?;
+    Ok(())
 }

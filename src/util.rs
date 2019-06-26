@@ -1,3 +1,5 @@
+use crate::Result;
+use failure::{format_err, ResultExt};
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -12,13 +14,10 @@ use std::os::unix::fs::symlink as symlink_file;
 #[cfg(windows)]
 use std::os::windows::fs::symlink_file;
 
-use crate::errors::*;
-
 /// Converts a `&Path` to a UTF-8 `&str`.
 pub fn path_to_str(path: &Path) -> Result<&str> {
-    path.to_str().ok_or_else(|| {
-        ErrorKind::Msg(format!("path is not valid UTF-8 '{}'", path.display())).into()
-    })
+    path.to_str()
+        .ok_or_else(|| format_err!("path is not valid UTF-8 '{}'", path.display()))
 }
 
 /// Wraps `fs::copy` with a nicer error message.
@@ -28,26 +27,29 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
         symlink_file(link, &to)?;
         Ok(0)
     } else {
-        fs::copy(&from, &to).chain_err(|| {
+        let amt = fs::copy(&from, &to).with_context(|_| {
             format!(
                 "failed to copy '{}' to '{}'",
                 from.as_ref().display(),
                 to.as_ref().display()
             )
-        })
+        })?;
+        Ok(amt)
     }
 }
 
 /// Wraps `fs::create_dir` with a nicer error message.
 pub fn create_dir<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir(&path)
-        .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
+        .with_context(|_| format!("failed to create dir '{}'", path.as_ref().display()))?;
+    Ok(())
 }
 
 /// Wraps `fs::create_dir_all` with a nicer error message.
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir_all(&path)
-        .chain_err(|| format!("failed to create dir '{}'", path.as_ref().display()))
+        .with_context(|_| format!("failed to create dir '{}'", path.as_ref().display()))?;
+    Ok(())
 }
 
 /// Wraps `fs::OpenOptions::create_new().open()` as executable, with a nicer error message.
@@ -56,35 +58,41 @@ pub fn create_new_executable<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     options.write(true).create_new(true);
     #[cfg(unix)]
     options.mode(0o755);
-    options
+    let file = options
         .open(&path)
-        .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
+        .with_context(|_| format!("failed to create file '{}'", path.as_ref().display()))?;
+    Ok(file)
 }
 
 /// Wraps `fs::OpenOptions::create_new().open()`, with a nicer error message.
 pub fn create_new_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
-    fs::OpenOptions::new()
+    let file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&path)
-        .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
+        .with_context(|_| format!("failed to create file '{}'", path.as_ref().display()))?;
+    Ok(file)
 }
 
 /// Wraps `fs::File::open()` with a nicer error message.
 pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
-    fs::File::open(&path).chain_err(|| format!("failed to open file '{}'", path.as_ref().display()))
+    let file = fs::File::open(&path)
+        .with_context(|_| format!("failed to open file '{}'", path.as_ref().display()))?;
+    Ok(file)
 }
 
 /// Wraps `remove_dir_all` with a nicer error message.
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     crate::remove_dir_all::remove_dir_all(path.as_ref())
-        .chain_err(|| format!("failed to remove dir '{}'", path.as_ref().display()))
+        .with_context(|_| format!("failed to remove dir '{}'", path.as_ref().display()))?;
+    Ok(())
 }
 
 /// Wrap `fs::remove_file` with a nicer error message
 pub fn remove_file<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::remove_file(path.as_ref())
-        .chain_err(|| format!("failed to remove file '{}'", path.as_ref().display()))
+        .with_context(|_| format!("failed to remove file '{}'", path.as_ref().display()))?;
+    Ok(())
 }
 
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
