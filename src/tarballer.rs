@@ -48,7 +48,11 @@ impl Tarballer {
         let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::best());
 
         // Prepare the `.tar.xz` file.
-        let xz = XzEncoder::new(create_new_file(tar_xz)?, 6);
+        let stream = xz2::stream::MtStreamBuilder::new()
+            .threads(num_cpus::get() as u32)
+            .preset(6)
+            .encoder()?;
+        let xz = XzEncoder::new_stream(create_new_file(tar_xz)?, stream);
 
         // Write the tar into both encoded files. We write all directories
         // first, so files may be directly created. (See rust-lang/rustup.rs#1092.)
