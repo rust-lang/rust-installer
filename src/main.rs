@@ -8,7 +8,7 @@ use crate::errors::*;
 use clap::{App, ArgMatches};
 
 mod errors {
-    error_chain!{
+    error_chain! {
         links {
             Installer(::installer::Error, ::installer::ErrorKind);
         }
@@ -84,7 +84,9 @@ fn script(matches: &ArgMatches<'_>) -> Result<()> {
         "output-script" => output_script,
     });
 
-    scripter.run().chain_err(|| "failed to generate installation script")
+    scripter
+        .run()
+        .chain_err(|| "failed to generate installation script")
 }
 
 fn tarball(matches: &ArgMatches<'_>) -> Result<()> {

@@ -8,7 +8,7 @@ extern crate winapi;
 extern crate lazy_static;
 
 mod errors {
-    error_chain!{
+    error_chain! {
         foreign_links {
             Io(::std::io::Error);
             StripPrefix(::std::path::StripPrefixError);
@@ -28,8 +28,8 @@ mod generator;
 mod scripter;
 mod tarballer;
 
-pub use crate::errors::{Result, Error, ErrorKind};
 pub use crate::combiner::Combiner;
+pub use crate::errors::{Error, ErrorKind, Result};
 pub use crate::generator::Generator;
 pub use crate::scripter::Scripter;
 pub use crate::tarballer::Tarballer;

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use std::path::Path;
 use std::io;
+use std::path::Path;
 
 #[cfg(not(windows))]
 pub fn remove_dir_all(path: &Path) -> io::Result<()> {
@@ -15,35 +15,43 @@ pub fn remove_dir_all(path: &Path) -> io::Result<()> {
 
 #[cfg(windows)]
 mod win {
-    use winapi::ctypes::{c_ushort, c_uint};
+    use winapi::ctypes::{c_uint, c_ushort};
     use winapi::shared::minwindef::{BOOL, DWORD, FALSE, FILETIME, LPVOID};
-    use winapi::shared::winerror::{ERROR_CALL_NOT_IMPLEMENTED, ERROR_INSUFFICIENT_BUFFER, ERROR_NO_MORE_FILES};
+    use winapi::shared::winerror::{
+        ERROR_CALL_NOT_IMPLEMENTED, ERROR_INSUFFICIENT_BUFFER, ERROR_NO_MORE_FILES,
+    };
     use winapi::um::errhandlingapi::{GetLastError, SetLastError};
+    use winapi::um::fileapi::{
+        CreateFileW, FindFirstFileW, FindNextFileW, GetFileInformationByHandle,
+    };
     use winapi::um::fileapi::{BY_HANDLE_FILE_INFORMATION, CREATE_ALWAYS, CREATE_NEW};
     use winapi::um::fileapi::{FILE_BASIC_INFO, FILE_RENAME_INFO, TRUNCATE_EXISTING};
     use winapi::um::fileapi::{OPEN_ALWAYS, OPEN_EXISTING};
-    use winapi::um::fileapi::{CreateFileW, GetFileInformationByHandle, FindFirstFileW, FindNextFileW};
     use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
     use winapi::um::ioapiset::DeviceIoControl;
-    use winapi::um::libloaderapi::{GetProcAddress, GetModuleHandleW};
-    use winapi::um::minwinbase::{FileBasicInfo, FileRenameInfo, FILE_INFO_BY_HANDLE_CLASS, WIN32_FIND_DATAW};
-    use winapi::um::winbase::{FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_DELETE_ON_CLOSE, FILE_FLAG_OPEN_REPARSE_POINT};
+    use winapi::um::libloaderapi::{GetModuleHandleW, GetProcAddress};
+    use winapi::um::minwinbase::{
+        FileBasicInfo, FileRenameInfo, FILE_INFO_BY_HANDLE_CLASS, WIN32_FIND_DATAW,
+    };
     use winapi::um::winbase::SECURITY_SQOS_PRESENT;
+    use winapi::um::winbase::{
+        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_DELETE_ON_CLOSE, FILE_FLAG_OPEN_REPARSE_POINT,
+    };
     use winapi::um::winioctl::FSCTL_GET_REPARSE_POINT;
-    use winapi::um::winnt::{FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_READONLY};
+    use winapi::um::winnt::{DELETE, FILE_ATTRIBUTE_DIRECTORY, HANDLE, LPCWSTR};
+    use winapi::um::winnt::{FILE_ATTRIBUTE_READONLY, FILE_ATTRIBUTE_REPARSE_POINT};
+    use winapi::um::winnt::{FILE_GENERIC_WRITE, FILE_WRITE_DATA, GENERIC_READ, GENERIC_WRITE};
+    use winapi::um::winnt::{FILE_READ_ATTRIBUTES, FILE_WRITE_ATTRIBUTES};
     use winapi::um::winnt::{FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE};
-    use winapi::um::winnt::{FILE_WRITE_ATTRIBUTES, FILE_READ_ATTRIBUTES};
-    use winapi::um::winnt::{FILE_WRITE_DATA, FILE_GENERIC_WRITE, GENERIC_READ, GENERIC_WRITE};
-    use winapi::um::winnt::{LARGE_INTEGER, IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK};
-    use winapi::um::winnt::{LPCWSTR, DELETE, FILE_ATTRIBUTE_DIRECTORY, HANDLE};
+    use winapi::um::winnt::{IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK, LARGE_INTEGER};
 
+    use std::ffi::{OsStr, OsString};
+    use std::io;
+    use std::mem;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+    use std::path::{Path, PathBuf};
     use std::ptr;
     use std::sync::Arc;
-    use std::path::{PathBuf, Path};
-    use std::mem;
-    use std::io;
-    use std::ffi::{OsStr, OsString};
-    use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
     pub fn remove_dir_all(path: &Path) -> io::Result<()> {
         // On Windows it is not enough to just recursively remove the contents of a
@@ -91,8 +99,7 @@ mod win {
         let (path, metadata) = {
             let mut opts = OpenOptions::new();
             opts.access_mode(FILE_READ_ATTRIBUTES);
-            opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS |
-                              FILE_FLAG_OPEN_REPARSE_POINT);
+            opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT);
             let file = File::open(path, &opts)?;
             (get_path(&file)?, file.file_attr()?)
         };
@@ -100,8 +107,12 @@ mod win {
         let mut ctx = RmdirContext {
             base_dir: match path.parent() {
                 Some(dir) => dir,
-                None => return Err(io::Error::new(io::ErrorKind::PermissionDenied,
-                                                  "can't delete root directory"))
+                None => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "can't delete root directory",
+                    ))
+                }
             },
             readonly: metadata.perm().readonly(),
             counter: 0,
@@ -113,10 +124,12 @@ mod win {
         } else if filetype.is_symlink_dir() {
             remove_item(path.as_ref(), &mut ctx)
         } else {
-            Err(io::Error::new(io::ErrorKind::PermissionDenied, "Not a directory"))
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Not a directory",
+            ))
         }
     }
-
 
     fn readdir(p: &Path) -> io::Result<ReadDir> {
         let root = p.to_path_buf();
@@ -144,8 +157,7 @@ mod win {
         counter: u64,
     }
 
-    fn remove_dir_all_recursive(path: &Path, ctx: &mut RmdirContext)
-                                -> io::Result<()> {
+    fn remove_dir_all_recursive(path: &Path, ctx: &mut RmdirContext) -> io::Result<()> {
         let dir_readonly = ctx.readonly;
         for child in readdir(path)? {
             let child = child?;
@@ -165,9 +177,11 @@ mod win {
         if !ctx.readonly {
             let mut opts = OpenOptions::new();
             opts.access_mode(DELETE);
-            opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS | // delete directory
+            opts.custom_flags(
+                FILE_FLAG_BACKUP_SEMANTICS | // delete directory
                               FILE_FLAG_OPEN_REPARSE_POINT | // delete symlink
-                              FILE_FLAG_DELETE_ON_CLOSE);
+                              FILE_FLAG_DELETE_ON_CLOSE,
+            );
             let file = File::open(path, &opts)?;
             move_item(&file, ctx)
         } else {
@@ -177,9 +191,11 @@ mod win {
             // only the access mode is different.
             let mut opts = OpenOptions::new();
             opts.access_mode(DELETE | FILE_WRITE_ATTRIBUTES);
-            opts.custom_flags(FILE_FLAG_BACKUP_SEMANTICS |
-                              FILE_FLAG_OPEN_REPARSE_POINT |
-                              FILE_FLAG_DELETE_ON_CLOSE);
+            opts.custom_flags(
+                FILE_FLAG_BACKUP_SEMANTICS
+                    | FILE_FLAG_OPEN_REPARSE_POINT
+                    | FILE_FLAG_DELETE_ON_CLOSE,
+            );
             let file = File::open(path, &opts)?;
             move_item(&file, ctx)?;
             // restore read-only flag just in case there are other hard links
@@ -271,8 +287,10 @@ mod win {
         fn inner(s: &OsStr) -> io::Result<Vec<u16>> {
             let mut maybe_result: Vec<u16> = s.encode_wide().collect();
             if maybe_result.iter().any(|&u| u == 0) {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput,
-                                          "strings passed to WinAPI cannot contain NULs"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "strings passed to WinAPI cannot contain NULs",
+                ));
             }
             maybe_result.push(0);
             Ok(maybe_result)
@@ -284,13 +302,14 @@ mod win {
         match v.iter().position(|c| *c == 0) {
             // don't include the 0
             Some(i) => &v[..i],
-            None => v
+            None => v,
         }
     }
 
     fn fill_utf16_buf<F1, F2, T>(mut f1: F1, f2: F2) -> io::Result<T>
-        where F1: FnMut(*mut u16, DWORD) -> DWORD,
-              F2: FnOnce(&[u16]) -> T
+    where
+        F1: FnMut(*mut u16, DWORD) -> DWORD,
+        F2: FnOnce(&[u16]) -> T,
     {
         // Start off with a stack buf but then spill over to the heap if we end up
         // needing more space.
@@ -328,19 +347,27 @@ mod win {
                 } else if k >= n {
                     n = k;
                 } else {
-                    return Ok(f2(&buf[..k]))
+                    return Ok(f2(&buf[..k]));
                 }
             }
         }
     }
 
     #[derive(Clone, PartialEq, Eq, Debug, Default)]
-        struct FilePermissions { readonly: bool }
+    struct FilePermissions {
+        readonly: bool,
+    }
 
     impl FilePermissions {
-        fn new() -> FilePermissions { Default::default() }
-        fn readonly(&self) -> bool { self.readonly }
-        fn set_readonly(&mut self, readonly: bool) { self.readonly = readonly }
+        fn new() -> FilePermissions {
+            Default::default()
+        }
+        fn readonly(&self) -> bool {
+            self.readonly
+        }
+        fn set_readonly(&mut self, readonly: bool) {
+            self.readonly = readonly
+        }
     }
 
     #[derive(Clone)]
@@ -380,21 +407,26 @@ mod win {
                 security_attributes: 0,
             }
         }
-        fn custom_flags(&mut self, flags: u32) { self.custom_flags = flags; }
-        fn access_mode(&mut self, access_mode: u32) { self.access_mode = Some(access_mode); }
+        fn custom_flags(&mut self, flags: u32) {
+            self.custom_flags = flags;
+        }
+        fn access_mode(&mut self, access_mode: u32) {
+            self.access_mode = Some(access_mode);
+        }
 
         fn get_access_mode(&self) -> io::Result<DWORD> {
             const ERROR_INVALID_PARAMETER: i32 = 87;
 
             match (self.read, self.write, self.append, self.access_mode) {
                 (_, _, _, Some(mode)) => Ok(mode),
-                (true,  false, false, None) => Ok(GENERIC_READ),
-                (false, true,  false, None) => Ok(GENERIC_WRITE),
-                (true,  true,  false, None) => Ok(GENERIC_READ | GENERIC_WRITE),
-                (false, _,     true,  None) => Ok(FILE_GENERIC_WRITE & !FILE_WRITE_DATA),
-                (true,  _,     true,  None) => Ok(GENERIC_READ |
-                                                  (FILE_GENERIC_WRITE & !FILE_WRITE_DATA)),
-                (false, false, false, None) => Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER)),
+                (true, false, false, None) => Ok(GENERIC_READ),
+                (false, true, false, None) => Ok(GENERIC_WRITE),
+                (true, true, false, None) => Ok(GENERIC_READ | GENERIC_WRITE),
+                (false, _, true, None) => Ok(FILE_GENERIC_WRITE & !FILE_WRITE_DATA),
+                (true, _, true, None) => Ok(GENERIC_READ | (FILE_GENERIC_WRITE & !FILE_WRITE_DATA)),
+                (false, false, false, None) => {
+                    Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER))
+                }
             }
         }
 
@@ -403,60 +435,75 @@ mod win {
 
             match (self.write, self.append) {
                 (true, false) => {}
-                (false, false) =>
+                (false, false) => {
                     if self.truncate || self.create || self.create_new {
                         return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER));
-                    },
-                (_, true) =>
+                    }
+                }
+                (_, true) => {
                     if self.truncate && !self.create_new {
                         return Err(io::Error::from_raw_os_error(ERROR_INVALID_PARAMETER));
-                    },
+                    }
+                }
             }
 
             Ok(match (self.create, self.truncate, self.create_new) {
                 (false, false, false) => OPEN_EXISTING,
-                (true,  false, false) => OPEN_ALWAYS,
-                (false, true,  false) => TRUNCATE_EXISTING,
-                (true,  true,  false) => CREATE_ALWAYS,
-                (_,      _,    true)  => CREATE_NEW,
+                (true, false, false) => OPEN_ALWAYS,
+                (false, true, false) => TRUNCATE_EXISTING,
+                (true, true, false) => CREATE_ALWAYS,
+                (_, _, true) => CREATE_NEW,
             })
         }
 
         fn get_flags_and_attributes(&self) -> DWORD {
-            self.custom_flags |
-            self.attributes |
-            self.security_qos_flags |
-            if self.security_qos_flags != 0 { SECURITY_SQOS_PRESENT } else { 0 } |
-            if self.create_new { FILE_FLAG_OPEN_REPARSE_POINT } else { 0 }
+            self.custom_flags
+                | self.attributes
+                | self.security_qos_flags
+                | if self.security_qos_flags != 0 {
+                    SECURITY_SQOS_PRESENT
+                } else {
+                    0
+                }
+                | if self.create_new {
+                    FILE_FLAG_OPEN_REPARSE_POINT
+                } else {
+                    0
+                }
         }
     }
 
-    struct File { handle: Handle }
+    struct File {
+        handle: Handle,
+    }
 
     impl File {
         fn open(path: &Path, opts: &OpenOptions) -> io::Result<File> {
             let path = to_u16s(path)?;
             let handle = unsafe {
-                CreateFileW(path.as_ptr(),
-                            opts.get_access_mode()?,
-                            opts.share_mode,
-                            opts.security_attributes as *mut _,
-                            opts.get_creation_mode()?,
-                            opts.get_flags_and_attributes(),
-                            ptr::null_mut())
+                CreateFileW(
+                    path.as_ptr(),
+                    opts.get_access_mode()?,
+                    opts.share_mode,
+                    opts.security_attributes as *mut _,
+                    opts.get_creation_mode()?,
+                    opts.get_flags_and_attributes(),
+                    ptr::null_mut(),
+                )
             };
             if handle == INVALID_HANDLE_VALUE {
                 Err(io::Error::last_os_error())
             } else {
-                Ok(File { handle: Handle::new(handle) })
+                Ok(File {
+                    handle: Handle::new(handle),
+                })
             }
         }
 
         fn file_attr(&self) -> io::Result<FileAttr> {
             unsafe {
                 let mut info: BY_HANDLE_FILE_INFORMATION = mem::zeroed();
-                cvt(GetFileInformationByHandle(self.handle.raw(),
-                                                    &mut info))?;
+                cvt(GetFileInformationByHandle(self.handle.raw(), &mut info))?;
                 let mut attr = FileAttr {
                     attributes: info.dwFileAttributes,
                     creation_time: info.ftCreationTime,
@@ -476,23 +523,23 @@ mod win {
         }
 
         fn set_attributes(&self, attr: DWORD) -> io::Result<()> {
-            let zero: LARGE_INTEGER = unsafe {
-                mem::zeroed()
-            };
+            let zero: LARGE_INTEGER = unsafe { mem::zeroed() };
 
             let mut info = FILE_BASIC_INFO {
-                CreationTime: zero, // do not change
+                CreationTime: zero,   // do not change
                 LastAccessTime: zero, // do not change
-                LastWriteTime: zero, // do not change
-                ChangeTime: zero, // do not change
+                LastWriteTime: zero,  // do not change
+                ChangeTime: zero,     // do not change
                 FileAttributes: attr,
             };
             let size = mem::size_of_val(&info);
             cvt(unsafe {
-                SetFileInformationByHandle(self.handle.raw(),
-                                           FileBasicInfo,
-                                           &mut info as *mut _ as *mut _,
-                                           size as DWORD)
+                SetFileInformationByHandle(
+                    self.handle.raw(),
+                    FileBasicInfo,
+                    &mut info as *mut _ as *mut _,
+                    size as DWORD,
+                )
             })?;
             Ok(())
         }
@@ -506,7 +553,8 @@ mod win {
             const STRUCT_SIZE: usize = 20;
 
             // FIXME: check for internal NULs in 'new'
-            let mut data: Vec<u16> = iter::repeat(0u16).take(STRUCT_SIZE/2)
+            let mut data: Vec<u16> = iter::repeat(0u16)
+                .take(STRUCT_SIZE / 2)
                 .chain(new.as_os_str().encode_wide())
                 .collect();
             data.push(0);
@@ -521,10 +569,12 @@ mod win {
                 (*info).ReplaceIfExists = if replace { -1 } else { FALSE };
                 (*info).RootDirectory = ptr::null_mut();
                 (*info).FileNameLength = (size - STRUCT_SIZE) as DWORD;
-                cvt(SetFileInformationByHandle(self.handle().raw(),
-                                                    FileRenameInfo,
-                                                    data.as_mut_ptr() as *mut _ as *mut _,
-                                                    size as DWORD))?;
+                cvt(SetFileInformationByHandle(
+                    self.handle().raw(),
+                    FileRenameInfo,
+                    data.as_mut_ptr() as *mut _ as *mut _,
+                    size as DWORD,
+                ))?;
                 Ok(())
             }
         }
@@ -539,39 +589,50 @@ mod win {
             }
         }
 
-        fn handle(&self) -> &Handle { &self.handle }
+        fn handle(&self) -> &Handle {
+            &self.handle
+        }
 
-        fn reparse_point<'a>(&self,
-                             space: &'a mut [u8; MAXIMUM_REPARSE_DATA_BUFFER_SIZE])
-                             -> io::Result<(DWORD, &'a REPARSE_DATA_BUFFER)> {
+        fn reparse_point<'a>(
+            &self,
+            space: &'a mut [u8; MAXIMUM_REPARSE_DATA_BUFFER_SIZE],
+        ) -> io::Result<(DWORD, &'a REPARSE_DATA_BUFFER)> {
             unsafe {
                 let mut bytes = 0;
                 cvt({
-                    DeviceIoControl(self.handle.raw(),
-                                    FSCTL_GET_REPARSE_POINT,
-                                    ptr::null_mut(),
-                                    0,
-                                    space.as_mut_ptr() as *mut _,
-                                    space.len() as DWORD,
-                                    &mut bytes,
-                                    ptr::null_mut())
+                    DeviceIoControl(
+                        self.handle.raw(),
+                        FSCTL_GET_REPARSE_POINT,
+                        ptr::null_mut(),
+                        0,
+                        space.as_mut_ptr() as *mut _,
+                        space.len() as DWORD,
+                        &mut bytes,
+                        ptr::null_mut(),
+                    )
                 })?;
                 Ok((bytes, &*(space.as_ptr() as *const REPARSE_DATA_BUFFER)))
             }
         }
     }
 
-
     #[derive(Copy, Clone, PartialEq, Eq, Hash)]
     enum FileType {
-        Dir, File, SymlinkFile, SymlinkDir, ReparsePoint, MountPoint,
+        Dir,
+        File,
+        SymlinkFile,
+        SymlinkDir,
+        ReparsePoint,
+        MountPoint,
     }
 
     impl FileType {
         fn new(attrs: DWORD, reparse_tag: DWORD) -> FileType {
-            match (attrs & FILE_ATTRIBUTE_DIRECTORY != 0,
-                   attrs & FILE_ATTRIBUTE_REPARSE_POINT != 0,
-                   reparse_tag) {
+            match (
+                attrs & FILE_ATTRIBUTE_DIRECTORY != 0,
+                attrs & FILE_ATTRIBUTE_REPARSE_POINT != 0,
+                reparse_tag,
+            ) {
                 (false, false, _) => FileType::File,
                 (true, false, _) => FileType::Dir,
                 (false, true, IO_REPARSE_TAG_SYMLINK) => FileType::SymlinkFile,
@@ -584,7 +645,9 @@ mod win {
             }
         }
 
-        fn is_dir(&self) -> bool { *self == FileType::Dir }
+        fn is_dir(&self) -> bool {
+            *self == FileType::Dir
+        }
         fn is_symlink_dir(&self) -> bool {
             *self == FileType::SymlinkDir || *self == FileType::MountPoint
         }
@@ -613,8 +676,10 @@ mod win {
         }
 
         fn file_type(&self) -> io::Result<FileType> {
-            Ok(FileType::new(self.data.dwFileAttributes,
-                             /* reparse_tag = */ self.data.dwReserved0))
+            Ok(FileType::new(
+                self.data.dwFileAttributes,
+                /* reparse_tag = */ self.data.dwReserved0,
+            ))
         }
 
         fn metadata(&self) -> io::Result<FileAttr> {
@@ -623,7 +688,8 @@ mod win {
                 creation_time: self.data.ftCreationTime,
                 last_access_time: self.data.ftLastAccessTime,
                 last_write_time: self.data.ftLastWriteTime,
-                file_size: ((self.data.nFileSizeHigh as u64) << 32) | (self.data.nFileSizeLow as u64),
+                file_size: ((self.data.nFileSizeHigh as u64) << 32)
+                    | (self.data.nFileSizeLow as u64),
                 reparse_tag: if self.data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
                     // reserved unless this is a reparse point
                     self.data.dwReserved0
@@ -633,8 +699,6 @@ mod win {
             })
         }
     }
-
-
 
     struct DirEntry {
         root: Arc<PathBuf>,
@@ -660,19 +724,18 @@ mod win {
                 loop {
                     if FindNextFileW(self.handle.0, &mut wfd) == 0 {
                         if GetLastError() == ERROR_NO_MORE_FILES {
-                            return None
+                            return None;
                         } else {
-                            return Some(Err(io::Error::last_os_error()))
+                            return Some(Err(io::Error::last_os_error()));
                         }
                     }
                     if let Some(e) = DirEntry::new(&self.root, &wfd) {
-                        return Some(Ok(e))
+                        return Some(Ok(e));
                     }
                 }
             }
         }
     }
-
 
     #[derive(Clone)]
     struct FileAttr {
@@ -687,7 +750,7 @@ mod win {
     impl FileAttr {
         fn perm(&self) -> FilePermissions {
             FilePermissions {
-                readonly: self.attributes & FILE_ATTRIBUTE_READONLY != 0
+                readonly: self.attributes & FILE_ATTRIBUTE_READONLY != 0,
             }
         }
 
@@ -709,7 +772,6 @@ mod win {
     }
 
     const MAXIMUM_REPARSE_DATA_BUFFER_SIZE: usize = 16 * 1024;
-
 
     /// An owned container for `HANDLE` object, closing them on Drop.
     ///
@@ -737,12 +799,16 @@ mod win {
 
     impl Deref for Handle {
         type Target = RawHandle;
-        fn deref(&self) -> &RawHandle { &self.0 }
+        fn deref(&self) -> &RawHandle {
+            &self.0
+        }
     }
 
     impl Drop for Handle {
         fn drop(&mut self) {
-            unsafe { let _ = CloseHandle(self.raw()); }
+            unsafe {
+                let _ = CloseHandle(self.raw());
+            }
         }
     }
 
@@ -751,27 +817,31 @@ mod win {
             RawHandle(handle)
         }
 
-        fn raw(&self) -> HANDLE { self.0 }
+        fn raw(&self) -> HANDLE {
+            self.0
+        }
     }
 
     struct FindNextFileHandle(HANDLE);
 
     fn get_path(f: &File) -> io::Result<PathBuf> {
-        fill_utf16_buf(|buf, sz| unsafe {
-            GetFinalPathNameByHandleW(f.handle.raw(), buf, sz,
-                                      VOLUME_NAME_DOS)
-        }, |buf| {
-            PathBuf::from(OsString::from_wide(buf))
-        })
+        fill_utf16_buf(
+            |buf, sz| unsafe {
+                GetFinalPathNameByHandleW(f.handle.raw(), buf, sz, VOLUME_NAME_DOS)
+            },
+            |buf| PathBuf::from(OsString::from_wide(buf)),
+        )
     }
 
     fn move_item(file: &File, ctx: &mut RmdirContext) -> io::Result<()> {
-        let mut tmpname = ctx.base_dir.join(format!{"rm-{}", ctx.counter});
+        let mut tmpname = ctx.base_dir.join(format! {"rm-{}", ctx.counter});
         ctx.counter += 1;
         // Try to rename the file. If it already exists, just retry with an other
         // filename.
         while let Err(err) = file.rename(tmpname.as_ref(), false) {
-            if err.kind() != io::ErrorKind::AlreadyExists { return Err(err) };
+            if err.kind() != io::ErrorKind::AlreadyExists {
+                return Err(err);
+            };
             tmpname = ctx.base_dir.join(format!("rm-{}", ctx.counter));
             ctx.counter += 1;
         }

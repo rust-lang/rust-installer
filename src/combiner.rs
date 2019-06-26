@@ -4,12 +4,12 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar::Archive;
 
-use crate::errors::*;
-use crate::util::*;
 use super::Scripter;
 use super::Tarballer;
+use crate::errors::*;
+use crate::util::*;
 
-actor!{
+actor! {
     #[derive(Debug)]
     pub struct Combiner {
         /// The name of the product, for display.
@@ -54,12 +54,20 @@ impl Combiner {
 
         // Merge each installer into the work directory of the new installer.
         let components = create_new_file(package_dir.join("components"))?;
-        for input_tarball in self.input_tarballs.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        for input_tarball in self
+            .input_tarballs
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             // Extract the input tarballs
             let tar = GzDecoder::new(open_file(&input_tarball)?);
-            Archive::new(tar).unpack(&self.work_dir)
-                .chain_err(|| format!("unable to extract '{}' into '{}'",
-                                      &input_tarball, self.work_dir))?;
+            Archive::new(tar).unpack(&self.work_dir).chain_err(|| {
+                format!(
+                    "unable to extract '{}' into '{}'",
+                    &input_tarball, self.work_dir
+                )
+            })?;
 
             let pkg_name = input_tarball.trim_end_matches(".tar.gz");
             let pkg_name = Path::new(pkg_name).file_name().unwrap();
@@ -77,7 +85,10 @@ impl Combiner {
             // Copy components to the new combined installer.
             let mut pkg_components = String::new();
             open_file(pkg_dir.join("components"))
-                .and_then(|mut file| file.read_to_string(&mut pkg_components).map_err(Error::from))
+                .and_then(|mut file| {
+                    file.read_to_string(&mut pkg_components)
+                        .map_err(Error::from)
+                })
                 .chain_err(|| format!("failed to read components in '{}'", input_tarball))?;
             for component in pkg_components.split_whitespace() {
                 // All we need to do is copy the component directory. We could
@@ -96,8 +107,12 @@ impl Combiner {
 
         // Write the installer version.
         let version = package_dir.join("rust-installer-version");
-        writeln!(create_new_file(version)?, "{}", crate::RUST_INSTALLER_VERSION)
-            .chain_err(|| "failed to write new installer version")?;
+        writeln!(
+            create_new_file(version)?,
+            "{}",
+            crate::RUST_INSTALLER_VERSION
+        )
+        .chain_err(|| "failed to write new installer version")?;
 
         // Copy the overlay.
         if !self.non_installed_overlay.is_empty() {
@@ -107,7 +122,8 @@ impl Combiner {
         // Generate the install script.
         let output_script = package_dir.join("install.sh");
         let mut scripter = Scripter::default();
-        scripter.product_name(self.product_name)
+        scripter
+            .product_name(self.product_name)
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
@@ -118,7 +134,8 @@ impl Combiner {
         create_dir_all(&self.output_dir)?;
         let output = Path::new(&self.output_dir).join(&self.package_name);
         let mut tarballer = Tarballer::default();
-        tarballer.work_dir(self.work_dir)
+        tarballer
+            .work_dir(self.work_dir)
             .input(self.package_name)
             .output(path_to_str(&output)?);
         tarballer.run()?;

@@ -1,5 +1,5 @@
 use std::fs::{read_link, symlink_metadata};
-use std::io::{self, empty, Write, BufWriter};
+use std::io::{self, empty, BufWriter, Write};
 use std::path::Path;
 
 use flate2;
@@ -12,7 +12,7 @@ use xz2::write::XzEncoder;
 use crate::errors::*;
 use crate::util::*;
 
-actor!{
+actor! {
     #[derive(Debug)]
     pub struct Tarballer {
         /// The input folder to be compressed.
@@ -58,11 +58,15 @@ impl Tarballer {
         let buf = BufWriter::with_capacity(1024 * 1024, tee);
         let mut builder = Builder::new(buf);
 
-        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
         pool.install(move || {
             for path in dirs {
                 let src = Path::new(&self.work_dir).join(&path);
-                builder.append_dir(&path, &src)
+                builder
+                    .append_dir(&path, &src)
                     .chain_err(|| format!("failed to tar dir '{}'", src.display()))?;
             }
             for path in files {
@@ -70,9 +74,12 @@ impl Tarballer {
                 append_path(&mut builder, &src, &path)
                     .chain_err(|| format!("failed to tar file '{}'", src.display()))?;
             }
-            let RayonTee(xz, gz) = builder.into_inner()
+            let RayonTee(xz, gz) = builder
+                .into_inner()
                 .chain_err(|| "failed to finish writing .tar stream")?
-                .into_inner().ok().unwrap();
+                .into_inner()
+                .ok()
+                .unwrap();
 
             // Finish both encoded files.
             let (rxz, rgz) = rayon::join(
@@ -112,13 +119,19 @@ fn append_path<W: Write>(builder: &mut Builder<W>, src: &Path, path: &String) ->
 
 /// Returns all `(directories, files)` under the source path.
 fn get_recursive_paths<P, Q>(root: P, name: Q) -> Result<(Vec<String>, Vec<String>)>
-    where P: AsRef<Path>, Q: AsRef<Path>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
 {
     let root = root.as_ref();
     let name = name.as_ref();
 
     if !name.is_relative() && !name.starts_with(root) {
-        bail!("input '{}' is not in work dir '{}'", name.display(), root.display());
+        bail!(
+            "input '{}' is not in work dir '{}'",
+            name.display(),
+            root.display()
+        );
     }
 
     let mut dirs = vec![];

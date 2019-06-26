@@ -1,4 +1,3 @@
-
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -29,9 +28,13 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
         symlink_file(link, &to)?;
         Ok(0)
     } else {
-        fs::copy(&from, &to)
-            .chain_err(|| format!("failed to copy '{}' to '{}'",
-                                  from.as_ref().display(), to.as_ref().display()))
+        fs::copy(&from, &to).chain_err(|| {
+            format!(
+                "failed to copy '{}' to '{}'",
+                from.as_ref().display(),
+                to.as_ref().display()
+            )
+        })
     }
 }
 
@@ -51,21 +54,25 @@ pub fn create_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
 pub fn create_new_executable<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     let mut options = fs::OpenOptions::new();
     options.write(true).create_new(true);
-    #[cfg(unix)] options.mode(0o755);
-    options.open(&path)
+    #[cfg(unix)]
+    options.mode(0o755);
+    options
+        .open(&path)
         .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
 }
 
 /// Wraps `fs::OpenOptions::create_new().open()`, with a nicer error message.
 pub fn create_new_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
-    fs::OpenOptions::new().write(true).create_new(true).open(&path)
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
         .chain_err(|| format!("failed to create file '{}'", path.as_ref().display()))
 }
 
 /// Wraps `fs::File::open()` with a nicer error message.
 pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
-    fs::File::open(&path)
-        .chain_err(|| format!("failed to open file '{}'", path.as_ref().display()))
+    fs::File::open(&path).chain_err(|| format!("failed to open file '{}'", path.as_ref().display()))
 }
 
 /// Wraps `remove_dir_all` with a nicer error message.
@@ -89,7 +96,8 @@ pub fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
 /// when this function is called. Invokes a callback for each path visited.
 pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> Result<()>
-    where F: FnMut(&Path, fs::FileType) -> Result<()>
+where
+    F: FnMut(&Path, fs::FileType) -> Result<()>,
 {
     for entry in WalkDir::new(src).min_depth(1) {
         let entry = entry?;
@@ -106,7 +114,6 @@ pub fn copy_with_callback<F>(src: &Path, dst: &Path, mut callback: F) -> Result<
     }
     Ok(())
 }
-
 
 /// Creates an "actor" with default values and setters for all fields.
 macro_rules! actor {

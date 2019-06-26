@@ -1,12 +1,12 @@
 use std::io::Write;
 use std::path::Path;
 
-use crate::errors::*;
 use super::Scripter;
 use super::Tarballer;
+use crate::errors::*;
 use crate::util::*;
 
-actor!{
+actor! {
     #[derive(Debug)]
     pub struct Generator {
         /// The name of the product, for display
@@ -66,8 +66,12 @@ impl Generator {
 
         // Write the installer version (only used by combine-installers.sh)
         let version = package_dir.join("rust-installer-version");
-        writeln!(create_new_file(version)?, "{}", crate::RUST_INSTALLER_VERSION)
-            .chain_err(|| "failed to write new installer version")?;
+        writeln!(
+            create_new_file(version)?,
+            "{}",
+            crate::RUST_INSTALLER_VERSION
+        )
+        .chain_err(|| "failed to write new installer version")?;
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
@@ -77,7 +81,8 @@ impl Generator {
         // Generate the install script
         let output_script = package_dir.join("install.sh");
         let mut scripter = Scripter::default();
-        scripter.product_name(self.product_name)
+        scripter
+            .product_name(self.product_name)
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
@@ -88,7 +93,8 @@ impl Generator {
         create_dir_all(&self.output_dir)?;
         let output = Path::new(&self.output_dir).join(&self.package_name);
         let mut tarballer = Tarballer::default();
-        tarballer.work_dir(self.work_dir)
+        tarballer
+            .work_dir(self.work_dir)
             .input(self.package_name)
             .output(path_to_str(&output)?);
         tarballer.run()?;
@@ -100,20 +106,32 @@ impl Generator {
 /// Copies the `src` directory recursively to `dst`, writing `manifest.in` too.
 fn copy_and_manifest(src: &Path, dst: &Path, bulk_dirs: &str) -> Result<()> {
     let manifest = create_new_file(dst.join("manifest.in"))?;
-    let bulk_dirs: Vec<_> = bulk_dirs.split(',')
+    let bulk_dirs: Vec<_> = bulk_dirs
+        .split(',')
         .filter(|s| !s.is_empty())
-        .map(Path::new).collect();
+        .map(Path::new)
+        .collect();
 
     copy_with_callback(src, dst, |path, file_type| {
         // We need paths to be compatible with both Unix and Windows.
-        if path.components().filter_map(|c| c.as_os_str().to_str()).any(|s| s.contains('\\')) {
-            bail!("rust-installer doesn't support '\\' in path components: {:?}", path);
+        if path
+            .components()
+            .filter_map(|c| c.as_os_str().to_str())
+            .any(|s| s.contains('\\'))
+        {
+            bail!(
+                "rust-installer doesn't support '\\' in path components: {:?}",
+                path
+            );
         }
 
         // Normalize to Unix-style path separators.
         let normalized_string;
         let mut string = path.to_str().ok_or_else(|| {
-            format!("rust-installer doesn't support non-Unicode paths: {:?}", path)
+            format!(
+                "rust-installer doesn't support non-Unicode paths: {:?}",
+                path
+            )
         })?;
         if string.contains('\\') {
             normalized_string = string.replace('\\', "/");
