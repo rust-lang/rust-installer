@@ -3,9 +3,6 @@ pub type Result<T> = std::result::Result<T, failure::Error>;
 #[macro_use]
 mod util;
 
-// deal with OS complications (cribbed from rustup.rs)
-mod remove_dir_all;
-
 mod combiner;
 mod generator;
 mod scripter;

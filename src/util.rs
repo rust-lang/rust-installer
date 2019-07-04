@@ -83,7 +83,7 @@ pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
 
 /// Wraps `remove_dir_all` with a nicer error message.
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
-    crate::remove_dir_all::remove_dir_all(path.as_ref())
+    remove_dir_all::remove_dir_all(path.as_ref())
         .with_context(|_| format!("failed to remove dir '{}'", path.as_ref().display()))?;
     Ok(())
 }
