@@ -47,9 +47,11 @@ impl Tarballer {
         // Prepare the `.tar.gz` file.
         let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::best());
 
-        // Prepare the `.tar.xz` file.
+        // Prepare the `.tar.xz` file. Note that preset 6 takes about 173MB of memory
+        // per thread, so we limit the number of threads to not blow out 32-bit hosts.
+        // (We could be more precise with `MtStreamBuilder::memusage()` if desired.)
         let stream = xz2::stream::MtStreamBuilder::new()
-            .threads(num_cpus::get() as u32)
+            .threads(Ord::min(num_cpus::get(), 8) as u32)
             .preset(6)
             .encoder()?;
         let xz = XzEncoder::new_stream(create_new_file(tar_xz)?, stream);
