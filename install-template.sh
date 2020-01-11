@@ -169,7 +169,7 @@ valopt() {
     local doc="$*"
     if [ $HELP -eq 0 ]
     then
-        local uop=$(echo $op | tr '[:lower:]' '[:upper:]' | tr '\-' '\_')
+        local uop=$(echo $op | tr '[:lower:]' '[:upper:]' | tr -- '-' '_')
         local v="CFG_${uop}"
         eval $v="$default"
         for arg in $CFG_ARGS
