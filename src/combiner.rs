@@ -1,8 +1,7 @@
 use super::Scripter;
 use super::Tarballer;
 use crate::util::*;
-use crate::Result;
-use failure::{bail, ResultExt};
+use anyhow::{bail, Context, Result};
 use flate2::read::GzDecoder;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -61,7 +60,7 @@ impl Combiner {
         {
             // Extract the input tarballs
             let tar = GzDecoder::new(open_file(&input_tarball)?);
-            Archive::new(tar).unpack(&self.work_dir).with_context(|_| {
+            Archive::new(tar).unpack(&self.work_dir).with_context(|| {
                 format!(
                     "unable to extract '{}' into '{}'",
                     &input_tarball, self.work_dir
@@ -76,7 +75,7 @@ impl Combiner {
             let mut version = String::new();
             open_file(pkg_dir.join("rust-installer-version"))
                 .and_then(|mut file| Ok(file.read_to_string(&mut version)?))
-                .with_context(|_| format!("failed to read version in '{}'", input_tarball))?;
+                .with_context(|| format!("failed to read version in '{}'", input_tarball))?;
             if version.trim().parse() != Ok(crate::RUST_INSTALLER_VERSION) {
                 bail!("incorrect installer version in {}", input_tarball);
             }
@@ -85,7 +84,7 @@ impl Combiner {
             let mut pkg_components = String::new();
             open_file(pkg_dir.join("components"))
                 .and_then(|mut file| Ok(file.read_to_string(&mut pkg_components)?))
-                .with_context(|_| format!("failed to read components in '{}'", input_tarball))?;
+                .with_context(|| format!("failed to read components in '{}'", input_tarball))?;
             for component in pkg_components.split_whitespace() {
                 // All we need to do is copy the component directory. We could
                 // move it, but rustbuild wants to reuse the unpacked package
@@ -95,8 +94,7 @@ impl Combiner {
                 copy_recursive(&pkg_dir.join(&component), &component_dir)?;
 
                 // Merge the component name.
-                writeln!(&components, "{}", component)
-                    .with_context(|_| "failed to write new components")?;
+                writeln!(&components, "{}", component).context("failed to write new components")?;
             }
         }
         drop(components);
@@ -108,7 +106,7 @@ impl Combiner {
             "{}",
             crate::RUST_INSTALLER_VERSION
         )
-        .with_context(|_| "failed to write new installer version")?;
+        .context("failed to write new installer version")?;
 
         // Copy the overlay.
         if !self.non_installed_overlay.is_empty() {

@@ -1,6 +1,5 @@
+use anyhow::{Context, Result};
 use clap::{App, ArgMatches};
-use failure::ResultExt;
-use installer::Result;
 
 fn main() -> Result<()> {
     let yaml = clap::load_yaml!("main.yml");
@@ -39,9 +38,7 @@ fn combine(matches: &ArgMatches<'_>) -> Result<()> {
         "output-dir" => output_dir,
     });
 
-    combiner
-        .run()
-        .with_context(|_| "failed to combine installers")?;
+    combiner.run().context("failed to combine installers")?;
     Ok(())
 }
 
@@ -60,9 +57,7 @@ fn generate(matches: &ArgMatches<'_>) -> Result<()> {
         "output-dir" => output_dir,
     });
 
-    generator
-        .run()
-        .with_context(|_| "failed to generate installer")?;
+    generator.run().context("failed to generate installer")?;
     Ok(())
 }
 
@@ -77,7 +72,7 @@ fn script(matches: &ArgMatches<'_>) -> Result<()> {
 
     scripter
         .run()
-        .with_context(|_| "failed to generate installation script")?;
+        .context("failed to generate installation script")?;
     Ok(())
 }
 
@@ -88,8 +83,6 @@ fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
         "work-dir" => work_dir,
     });
 
-    tarballer
-        .run()
-        .with_context(|_| "failed to generate tarballs")?;
+    tarballer.run().context("failed to generate tarballs")?;
     Ok(())
 }

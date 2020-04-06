@@ -1,8 +1,7 @@
 use super::Scripter;
 use super::Tarballer;
 use crate::util::*;
-use crate::Result;
-use failure::{format_err, bail, ResultExt};
+use anyhow::{bail, format_err, Context, Result};
 use std::io::Write;
 use std::path::Path;
 
@@ -62,7 +61,7 @@ impl Generator {
         // Write the component name
         let components = package_dir.join("components");
         writeln!(create_new_file(components)?, "{}", self.component_name)
-            .with_context(|_| "failed to write the component file")?;
+            .context("failed to write the component file")?;
 
         // Write the installer version (only used by combine-installers.sh)
         let version = package_dir.join("rust-installer-version");
@@ -71,7 +70,7 @@ impl Generator {
             "{}",
             crate::RUST_INSTALLER_VERSION
         )
-        .with_context(|_| "failed to write new installer version")?;
+        .context("failed to write new installer version")?;
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
