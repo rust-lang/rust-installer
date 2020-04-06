@@ -1,4 +1,4 @@
-use failure::{bail, ResultExt};
+use anyhow::{bail, Context, Result};
 use flate2::write::GzEncoder;
 use std::fs::{read_link, symlink_metadata};
 use std::io::{self, empty, BufWriter, Write};
@@ -8,7 +8,6 @@ use walkdir::WalkDir;
 use xz2::write::XzEncoder;
 
 use crate::util::*;
-use crate::Result;
 
 actor! {
     #[derive(Debug)]
@@ -41,7 +40,7 @@ impl Tarballer {
         // different locations (likely identical) and files with the same
         // extension (likely containing similar data).
         let (dirs, mut files) = get_recursive_paths(&self.work_dir, &self.input)
-            .with_context(|_| "failed to collect file paths")?;
+            .context("failed to collect file paths")?;
         files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
         // Prepare the `.tar.gz` file.
@@ -71,30 +70,24 @@ impl Tarballer {
                 let src = Path::new(&self.work_dir).join(&path);
                 builder
                     .append_dir(&path, &src)
-                    .with_context(|_| format!("failed to tar dir '{}'", src.display()))?;
+                    .with_context(|| format!("failed to tar dir '{}'", src.display()))?;
             }
             for path in files {
                 let src = Path::new(&self.work_dir).join(&path);
                 append_path(&mut builder, &src, &path)
-                    .with_context(|_| format!("failed to tar file '{}'", src.display()))?;
+                    .with_context(|| format!("failed to tar file '{}'", src.display()))?;
             }
             let RayonTee(xz, gz) = builder
                 .into_inner()
-                .with_context(|_| "failed to finish writing .tar stream")?
+                .context("failed to finish writing .tar stream")?
                 .into_inner()
                 .ok()
                 .unwrap();
 
             // Finish both encoded files.
             let (rxz, rgz) = rayon::join(
-                || {
-                    xz.finish()
-                        .with_context(|_| "failed to finish .tar.xz file")
-                },
-                || {
-                    gz.finish()
-                        .with_context(|_| "failed to finish .tar.gz file")
-                },
+                || xz.finish().context("failed to finish .tar.xz file"),
+                || gz.finish().context("failed to finish .tar.gz file"),
             );
             rxz?;
             rgz?;

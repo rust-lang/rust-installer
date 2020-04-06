@@ -1,5 +1,4 @@
-use crate::Result;
-use failure::{format_err, ResultExt};
+use anyhow::{format_err, Context, Result};
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -27,7 +26,7 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
         symlink_file(link, &to)?;
         Ok(0)
     } else {
-        let amt = fs::copy(&from, &to).with_context(|_| {
+        let amt = fs::copy(&from, &to).with_context(|| {
             format!(
                 "failed to copy '{}' to '{}'",
                 from.as_ref().display(),
@@ -41,14 +40,14 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
 /// Wraps `fs::create_dir` with a nicer error message.
 pub fn create_dir<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir(&path)
-        .with_context(|_| format!("failed to create dir '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to create dir '{}'", path.as_ref().display()))?;
     Ok(())
 }
 
 /// Wraps `fs::create_dir_all` with a nicer error message.
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::create_dir_all(&path)
-        .with_context(|_| format!("failed to create dir '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to create dir '{}'", path.as_ref().display()))?;
     Ok(())
 }
 
@@ -60,7 +59,7 @@ pub fn create_new_executable<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     options.mode(0o755);
     let file = options
         .open(&path)
-        .with_context(|_| format!("failed to create file '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to create file '{}'", path.as_ref().display()))?;
     Ok(file)
 }
 
@@ -70,28 +69,28 @@ pub fn create_new_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
         .write(true)
         .create_new(true)
         .open(&path)
-        .with_context(|_| format!("failed to create file '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to create file '{}'", path.as_ref().display()))?;
     Ok(file)
 }
 
 /// Wraps `fs::File::open()` with a nicer error message.
 pub fn open_file<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     let file = fs::File::open(&path)
-        .with_context(|_| format!("failed to open file '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to open file '{}'", path.as_ref().display()))?;
     Ok(file)
 }
 
 /// Wraps `remove_dir_all` with a nicer error message.
 pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> Result<()> {
     remove_dir_all::remove_dir_all(path.as_ref())
-        .with_context(|_| format!("failed to remove dir '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to remove dir '{}'", path.as_ref().display()))?;
     Ok(())
 }
 
 /// Wrap `fs::remove_file` with a nicer error message
 pub fn remove_file<P: AsRef<Path>>(path: P) -> Result<()> {
     fs::remove_file(path.as_ref())
-        .with_context(|_| format!("failed to remove file '{}'", path.as_ref().display()))?;
+        .with_context(|| format!("failed to remove file '{}'", path.as_ref().display()))?;
     Ok(())
 }
 

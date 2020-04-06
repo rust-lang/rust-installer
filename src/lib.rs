@@ -1,5 +1,3 @@
-pub type Result<T> = std::result::Result<T, failure::Error>;
-
 #[macro_use]
 mod util;
 
