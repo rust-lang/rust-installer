@@ -2,6 +2,7 @@
 mod util;
 
 mod combiner;
+mod compression;
 mod generator;
 mod scripter;
 mod tarballer;
