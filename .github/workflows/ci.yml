@@ -1,0 +1,23 @@
+---
+
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    env:
+      LZMA_API_STATIC: 1
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v2
+
+      - name: Install Rust stable
+        run: rustup toolchain update stable && rustup default stable
+
+      - name: Build the tool
+        run: cargo build
+
+      - name: Execute the test suite
+        run: ./test.sh
