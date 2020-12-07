@@ -1164,6 +1164,32 @@ docdir_combined() {
 }
 runtest docdir_combined
 
+combine_installers_different_input_compression_formats() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rustc \
+        --component-name=rustc \
+        --compression-formats=xz
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image3" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=cargo \
+        --component-name=cargo \
+        --compression-formats=gz
+    try sh "$S/combine-installers.sh" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rust \
+        --input-tarballs="$OUT_DIR/rustc.tar.xz,$OUT_DIR/cargo.tar.gz"
+
+    try test -e "${OUT_DIR}/rust.tar.gz"
+    try test -e "${OUT_DIR}/rust.tar.xz"
+}
+runtest combine_installers_different_input_compression_formats
+
 echo
 echo "TOTAL SUCCESS!"
 echo

@@ -1,8 +1,8 @@
 use anyhow::{Context, Error};
-use flate2::write::GzEncoder;
+use flate2::{read::GzDecoder, write::GzEncoder};
 use rayon::prelude::*;
-use std::{io::Write, path::Path};
-use xz2::write::XzEncoder;
+use std::{io::Read, io::Write, path::Path};
+use xz2::{read::XzDecoder, write::XzEncoder};
 
 pub(crate) enum CompressionFormat {
     Gz,
@@ -10,13 +10,24 @@ pub(crate) enum CompressionFormat {
 }
 
 impl CompressionFormat {
+    pub(crate) fn detect_from_path(path: impl AsRef<Path>) -> Option<Self> {
+        match path.as_ref().extension().and_then(|e| e.to_str()) {
+            Some("gz") => Some(CompressionFormat::Gz),
+            Some("xz") => Some(CompressionFormat::Xz),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn extension(&self) -> &'static str {
+        match self {
+            CompressionFormat::Gz => "gz",
+            CompressionFormat::Xz => "xz",
+        }
+    }
+
     pub(crate) fn encode(&self, path: impl AsRef<Path>) -> Result<Box<dyn Encoder>, Error> {
-        let extension = match self {
-            CompressionFormat::Gz => ".gz",
-            CompressionFormat::Xz => ".xz",
-        };
         let mut os = path.as_ref().as_os_str().to_os_string();
-        os.push(extension);
+        os.push(format!(".{}", self.extension()));
         let path = Path::new(&os);
 
         if path.exists() {
@@ -36,6 +47,14 @@ impl CompressionFormat {
                     .encoder()?;
                 Box::new(XzEncoder::new_stream(file, stream))
             }
+        })
+    }
+
+    pub(crate) fn decode(&self, path: impl AsRef<Path>) -> Result<Box<dyn Read>, Error> {
+        let file = crate::util::open_file(path.as_ref())?;
+        Ok(match self {
+            CompressionFormat::Gz => Box::new(GzDecoder::new(file)),
+            CompressionFormat::Xz => Box::new(XzDecoder::new(file)),
         })
     }
 }

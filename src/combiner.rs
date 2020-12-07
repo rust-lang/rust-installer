@@ -1,8 +1,7 @@
 use super::Scripter;
 use super::Tarballer;
-use crate::util::*;
+use crate::{compression::CompressionFormat, util::*};
 use anyhow::{bail, Context, Result};
-use flate2::read::GzDecoder;
 use std::io::{Read, Write};
 use std::path::Path;
 use tar::Archive;
@@ -59,15 +58,21 @@ impl Combiner {
             .filter(|s| !s.is_empty())
         {
             // Extract the input tarballs
-            let tar = GzDecoder::new(open_file(&input_tarball)?);
-            Archive::new(tar).unpack(&self.work_dir).with_context(|| {
-                format!(
-                    "unable to extract '{}' into '{}'",
-                    &input_tarball, self.work_dir
-                )
-            })?;
+            let compression =
+                CompressionFormat::detect_from_path(input_tarball).ok_or_else(|| {
+                    anyhow::anyhow!("couldn't figure out the format of {}", input_tarball)
+                })?;
+            Archive::new(compression.decode(input_tarball)?)
+                .unpack(&self.work_dir)
+                .with_context(|| {
+                    format!(
+                        "unable to extract '{}' into '{}'",
+                        &input_tarball, self.work_dir
+                    )
+                })?;
 
-            let pkg_name = input_tarball.trim_end_matches(".tar.gz");
+            let pkg_name =
+                input_tarball.trim_end_matches(&format!(".tar.{}", compression.extension()));
             let pkg_name = Path::new(pkg_name).file_name().unwrap();
             let pkg_dir = Path::new(&self.work_dir).join(&pkg_name);
 
