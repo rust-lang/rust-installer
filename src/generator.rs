@@ -85,7 +85,7 @@ impl Generator {
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
-            .output_script(path_to_str(&output_script)?);
+            .output_script(path_to_str(&output_script)?.into());
         scripter.run()?;
 
         // Make the tarballs
@@ -95,7 +95,7 @@ impl Generator {
         tarballer
             .work_dir(self.work_dir)
             .input(self.package_name)
-            .output(path_to_str(&output)?);
+            .output(path_to_str(&output)?.into());
         tarballer.run()?;
 
         Ok(())
