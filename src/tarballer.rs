@@ -1,13 +1,14 @@
 use anyhow::{bail, Context, Result};
-use flate2::write::GzEncoder;
 use std::fs::{read_link, symlink_metadata};
-use std::io::{self, empty, BufWriter, Write};
+use std::io::{empty, BufWriter, Write};
 use std::path::Path;
 use tar::{Builder, Header};
 use walkdir::WalkDir;
-use xz2::write::XzEncoder;
 
-use crate::util::*;
+use crate::{
+    compression::{CombinedEncoder, CompressionFormats},
+    util::*,
+};
 
 actor! {
     #[derive(Debug)]
@@ -20,21 +21,22 @@ actor! {
 
         /// The folder in which the input is to be found.
         work_dir: String = "./workdir",
+
+        /// The formats used to compress the tarball.
+        compression_formats: CompressionFormats = CompressionFormats::default(),
     }
 }
 
 impl Tarballer {
     /// Generates the actual tarballs
     pub fn run(self) -> Result<()> {
-        let tar_gz = self.output.clone() + ".tar.gz";
-        let tar_xz = self.output.clone() + ".tar.xz";
-
-        // Remove any existing files.
-        for file in &[&tar_gz, &tar_xz] {
-            if Path::new(file).exists() {
-                remove_file(file)?;
-            }
-        }
+        let tarball_name = self.output.clone() + ".tar";
+        let encoder = CombinedEncoder::new(
+            self.compression_formats
+                .iter()
+                .map(|f| f.encode(&tarball_name))
+                .collect::<Result<Vec<_>>>()?,
+        );
 
         // Sort files by their suffix, to group files with the same name from
         // different locations (likely identical) and files with the same
@@ -43,22 +45,9 @@ impl Tarballer {
             .context("failed to collect file paths")?;
         files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
-        // Prepare the `.tar.gz` file.
-        let gz = GzEncoder::new(create_new_file(tar_gz)?, flate2::Compression::best());
-
-        // Prepare the `.tar.xz` file. Note that preset 6 takes about 173MB of memory
-        // per thread, so we limit the number of threads to not blow out 32-bit hosts.
-        // (We could be more precise with `MtStreamBuilder::memusage()` if desired.)
-        let stream = xz2::stream::MtStreamBuilder::new()
-            .threads(Ord::min(num_cpus::get(), 8) as u32)
-            .preset(6)
-            .encoder()?;
-        let xz = XzEncoder::new_stream(create_new_file(tar_xz)?, stream);
-
         // Write the tar into both encoded files. We write all directories
         // first, so files may be directly created. (See rust-lang/rustup.rs#1092.)
-        let tee = RayonTee(xz, gz);
-        let buf = BufWriter::with_capacity(1024 * 1024, tee);
+        let buf = BufWriter::with_capacity(1024 * 1024, encoder);
         let mut builder = Builder::new(buf);
 
         let pool = rayon::ThreadPoolBuilder::new()
@@ -77,20 +66,14 @@ impl Tarballer {
                 append_path(&mut builder, &src, &path)
                     .with_context(|| format!("failed to tar file '{}'", src.display()))?;
             }
-            let RayonTee(xz, gz) = builder
+            builder
                 .into_inner()
                 .context("failed to finish writing .tar stream")?
                 .into_inner()
                 .ok()
-                .unwrap();
+                .unwrap()
+                .finish()?;
 
-            // Finish both encoded files.
-            let (rxz, rgz) = rayon::join(
-                || xz.finish().context("failed to finish .tar.xz file"),
-                || gz.finish().context("failed to finish .tar.gz file"),
-            );
-            rxz?;
-            rgz?;
             Ok(())
         })
     }
@@ -153,25 +136,4 @@ where
         }
     }
     Ok((dirs, files))
-}
-
-struct RayonTee<A, B>(A, B);
-
-impl<A: Write + Send, B: Write + Send> Write for RayonTee<A, B> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.write_all(buf)?;
-        Ok(buf.len())
-    }
-
-    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        let (a, b) = (&mut self.0, &mut self.1);
-        let (ra, rb) = rayon::join(|| a.write_all(buf), || b.write_all(buf));
-        ra.and(rb)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        let (a, b) = (&mut self.0, &mut self.1);
-        let (ra, rb) = rayon::join(|| a.flush(), || b.flush());
-        ra.and(rb)
-    }
 }

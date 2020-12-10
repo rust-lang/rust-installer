@@ -1,8 +1,10 @@
 use super::Scripter;
 use super::Tarballer;
-use crate::util::*;
+use crate::{
+    compression::{CompressionFormat, CompressionFormats},
+    util::*,
+};
 use anyhow::{bail, Context, Result};
-use flate2::read::GzDecoder;
 use std::io::{Read, Write};
 use std::path::Path;
 use tar::Archive;
@@ -36,6 +38,9 @@ actor! {
 
         /// The location to put the final image and tarball.
         output_dir: String = "./dist",
+
+        /// The formats used to compress the tarball
+        compression_formats: CompressionFormats = CompressionFormats::default(),
     }
 }
 
@@ -59,15 +64,21 @@ impl Combiner {
             .filter(|s| !s.is_empty())
         {
             // Extract the input tarballs
-            let tar = GzDecoder::new(open_file(&input_tarball)?);
-            Archive::new(tar).unpack(&self.work_dir).with_context(|| {
-                format!(
-                    "unable to extract '{}' into '{}'",
-                    &input_tarball, self.work_dir
-                )
-            })?;
+            let compression =
+                CompressionFormat::detect_from_path(input_tarball).ok_or_else(|| {
+                    anyhow::anyhow!("couldn't figure out the format of {}", input_tarball)
+                })?;
+            Archive::new(compression.decode(input_tarball)?)
+                .unpack(&self.work_dir)
+                .with_context(|| {
+                    format!(
+                        "unable to extract '{}' into '{}'",
+                        &input_tarball, self.work_dir
+                    )
+                })?;
 
-            let pkg_name = input_tarball.trim_end_matches(".tar.gz");
+            let pkg_name =
+                input_tarball.trim_end_matches(&format!(".tar.{}", compression.extension()));
             let pkg_name = Path::new(pkg_name).file_name().unwrap();
             let pkg_dir = Path::new(&self.work_dir).join(&pkg_name);
 
@@ -121,7 +132,7 @@ impl Combiner {
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
-            .output_script(path_to_str(&output_script)?);
+            .output_script(path_to_str(&output_script)?.into());
         scripter.run()?;
 
         // Make the tarballs.
@@ -131,7 +142,8 @@ impl Combiner {
         tarballer
             .work_dir(self.work_dir)
             .input(self.package_name)
-            .output(path_to_str(&output)?);
+            .output(path_to_str(&output)?.into())
+            .compression_formats(self.compression_formats.clone());
         tarballer.run()?;
 
         Ok(())

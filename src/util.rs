@@ -142,8 +142,8 @@ macro_rules! actor {
 
         impl $name {
             $( $( #[ $field_attr ] )+
-            pub fn $field<T: Into<$type>>(&mut self, value: T) -> &mut Self {
-                self.$field = value.into();
+            pub fn $field(&mut self, value: $type) -> &mut Self {
+                self.$field = value;
                 self
             })+
         }

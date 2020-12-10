@@ -60,6 +60,11 @@ subcommands:
             long: output-dir
             takes_value: true
             value_name: DIR
+        - compression-formats:
+            help: Comma-separated list of compression formats to use
+            long: compression-formats
+            takes_value: true
+            value_name: FORMAT
   - combine:
       about: Combine installer tarballs
       args:
@@ -108,6 +113,11 @@ subcommands:
             long: output-dir
             takes_value: true
             value_name: DIR
+        - compression-formats:
+            help: Comma-separated list of compression formats to use
+            long: compression-formats
+            takes_value: true
+            value_name: FORMAT
   - script:
       about: Generate an installation script
       args:
@@ -154,4 +164,9 @@ subcommands:
             long: work-dir
             takes_value: true
             value_name: DIR
+        - compression-formats:
+            help: Comma-separated list of compression formats to use
+            long: compression-formats
+            takes_value: true
+            value_name: FORMAT
 

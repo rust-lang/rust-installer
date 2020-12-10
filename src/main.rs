@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{App, ArgMatches};
+use std::convert::TryInto;
 
 fn main() -> Result<()> {
     let yaml = clap::load_yaml!("main.yml");
@@ -19,7 +20,11 @@ macro_rules! parse(
     ($matches:expr => $type:ty { $( $option:tt => $setter:ident, )* }) => {
         {
             let mut command: $type = Default::default();
-            $( $matches.value_of($option).map(|s| command.$setter(s)); )*
+            $(
+                if let Some(val) = $matches.value_of($option) {
+                    command.$setter(val.try_into()?);
+                }
+            )*
             command
         }
     }
@@ -36,6 +41,7 @@ fn combine(matches: &ArgMatches<'_>) -> Result<()> {
         "non-installed-overlay" => non_installed_overlay,
         "work-dir" => work_dir,
         "output-dir" => output_dir,
+        "compression-formats" => compression_formats,
     });
 
     combiner.run().context("failed to combine installers")?;
@@ -55,6 +61,7 @@ fn generate(matches: &ArgMatches<'_>) -> Result<()> {
         "image-dir" => image_dir,
         "work-dir" => work_dir,
         "output-dir" => output_dir,
+        "compression-formats" => compression_formats,
     });
 
     generator.run().context("failed to generate installer")?;
@@ -81,6 +88,7 @@ fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
         "input" => input,
         "output" => output,
         "work-dir" => work_dir,
+        "compression-formats" => compression_formats,
     });
 
     tarballer.run().context("failed to generate tarballs")?;

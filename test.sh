@@ -1164,6 +1164,179 @@ docdir_combined() {
 }
 runtest docdir_combined
 
+combine_installers_different_input_compression_formats() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rustc \
+        --component-name=rustc \
+        --compression-formats=xz
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image3" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=cargo \
+        --component-name=cargo \
+        --compression-formats=gz
+    try sh "$S/combine-installers.sh" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rust \
+        --input-tarballs="$OUT_DIR/rustc.tar.xz,$OUT_DIR/cargo.tar.gz"
+
+    try test -e "${OUT_DIR}/rust.tar.gz"
+    try test -e "${OUT_DIR}/rust.tar.xz"
+}
+runtest combine_installers_different_input_compression_formats
+
+generate_compression_formats_one() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="xz"
+
+    try test ! -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest generate_compression_formats_one
+
+generate_compression_formats_multiple() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="gz,xz"
+
+    try test -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest generate_compression_formats_multiple
+
+generate_compression_formats_error() {
+    expect_fail sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="xz,foobar"
+}
+runtest generate_compression_formats_error
+
+combine_compression_formats_one() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rustc \
+        --component-name=rustc
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image3" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=cargo \
+        --component-name=cargo
+    try sh "$S/combine-installers.sh" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rust \
+        --input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz" \
+        --compression-formats=xz
+
+    try test ! -e "${OUT_DIR}/rust.tar.gz"
+    try test -e "${OUT_DIR}/rust.tar.xz"
+}
+runtest combine_compression_formats_one
+
+combine_compression_formats_multiple() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rustc \
+        --component-name=rustc
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image3" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=cargo \
+        --component-name=cargo
+    try sh "$S/combine-installers.sh" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rust \
+        --input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz" \
+        --compression-formats=xz,gz
+
+    try test -e "${OUT_DIR}/rust.tar.gz"
+    try test -e "${OUT_DIR}/rust.tar.xz"
+}
+runtest combine_compression_formats_multiple
+
+combine_compression_formats_error() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rustc \
+        --component-name=rustc
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image3" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=cargo \
+        --component-name=cargo
+    expect_fail sh "$S/combine-installers.sh" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name=rust \
+        --input-tarballs="$OUT_DIR/rustc.tar.gz,$OUT_DIR/cargo.tar.gz" \
+        --compression-formats=xz,foobar
+}
+runtest combine_compression_formats_error
+
+tarball_compression_formats_one() {
+    try cp -r "${TEST_DIR}/image1" "${WORK_DIR}/image"
+    try sh "$S/make-tarballs.sh" \
+        --input="${WORK_DIR}/image" \
+        --work-dir="${WORK_DIR}" \
+        --output="${OUT_DIR}/rustc" \
+        --compression-formats="xz"
+
+    try test ! -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest tarball_compression_formats_one
+
+tarball_compression_formats_multiple() {
+    try cp -r "${TEST_DIR}/image1" "${WORK_DIR}/image"
+    try sh "$S/make-tarballs.sh" \
+        --input="${WORK_DIR}/image" \
+        --work-dir="${WORK_DIR}" \
+        --output="${OUT_DIR}/rustc" \
+        --compression-formats="xz,gz"
+
+    try test -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest tarball_compression_formats_multiple
+
+tarball_compression_formats_error() {
+    try cp -r "${TEST_DIR}/image1" "${WORK_DIR}/image"
+    expect_fail sh "$S/make-tarballs.sh" \
+        --input="${WORK_DIR}/image" \
+        --work-dir="${WORK_DIR}" \
+        --output="${OUT_DIR}/rustc" \
+        --compression-formats="xz,foobar"
+}
+runtest tarball_compression_formats_error
+
 echo
 echo "TOTAL SUCCESS!"
 echo

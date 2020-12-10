@@ -1,5 +1,6 @@
 use super::Scripter;
 use super::Tarballer;
+use crate::compression::CompressionFormats;
 use crate::util::*;
 use anyhow::{bail, format_err, Context, Result};
 use std::io::Write;
@@ -40,6 +41,9 @@ actor! {
 
         /// The location to put the final image and tarball
         output_dir: String = "./dist",
+
+        /// The formats used to compress the tarball
+        compression_formats: CompressionFormats = CompressionFormats::default(),
     }
 }
 
@@ -85,7 +89,7 @@ impl Generator {
             .rel_manifest_dir(self.rel_manifest_dir)
             .success_message(self.success_message)
             .legacy_manifest_dirs(self.legacy_manifest_dirs)
-            .output_script(path_to_str(&output_script)?);
+            .output_script(path_to_str(&output_script)?.into());
         scripter.run()?;
 
         // Make the tarballs
@@ -95,7 +99,8 @@ impl Generator {
         tarballer
             .work_dir(self.work_dir)
             .input(self.package_name)
-            .output(path_to_str(&output)?);
+            .output(path_to_str(&output)?.into())
+            .compression_formats(self.compression_formats.clone());
         tarballer.run()?;
 
         Ok(())
