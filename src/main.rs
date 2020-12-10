@@ -60,6 +60,7 @@ fn generate(matches: &ArgMatches<'_>) -> Result<()> {
         "image-dir" => image_dir,
         "work-dir" => work_dir,
         "output-dir" => output_dir,
+        "compression-formats" => compression_formats,
     });
 
     generator.run().context("failed to generate installer")?;

@@ -1,10 +1,11 @@
 use anyhow::{Context, Error};
 use flate2::{read::GzDecoder, write::GzEncoder};
 use rayon::prelude::*;
-use std::{io::Read, io::Write, path::Path};
+use std::{convert::TryFrom, io::Read, io::Write, path::Path};
 use xz2::{read::XzDecoder, write::XzEncoder};
 
-pub(crate) enum CompressionFormat {
+#[derive(Debug, Copy, Clone)]
+pub enum CompressionFormat {
     Gz,
     Xz,
 }
@@ -56,6 +57,38 @@ impl CompressionFormat {
             CompressionFormat::Gz => Box::new(GzDecoder::new(file)),
             CompressionFormat::Xz => Box::new(XzDecoder::new(file)),
         })
+    }
+}
+
+/// This struct wraps Vec<CompressionFormat> in order to parse the value from the command line.
+#[derive(Debug, Clone)]
+pub struct CompressionFormats(Vec<CompressionFormat>);
+
+impl TryFrom<&'_ str> for CompressionFormats {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut parsed = Vec::new();
+        for format in value.split(',') {
+            match format.trim() {
+                "gz" => parsed.push(CompressionFormat::Gz),
+                "xz" => parsed.push(CompressionFormat::Xz),
+                other => anyhow::bail!("unknown compression format: {}", other),
+            }
+        }
+        Ok(CompressionFormats(parsed))
+    }
+}
+
+impl Default for CompressionFormats {
+    fn default() -> Self {
+        Self(vec![CompressionFormat::Gz, CompressionFormat::Xz])
+    }
+}
+
+impl CompressionFormats {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = CompressionFormat> + '_ {
+        self.0.iter().map(|i| *i)
     }
 }
 

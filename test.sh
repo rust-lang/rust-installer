@@ -1190,6 +1190,45 @@ combine_installers_different_input_compression_formats() {
 }
 runtest combine_installers_different_input_compression_formats
 
+generate_compression_formats_one() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="xz"
+
+    try test ! -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest generate_compression_formats_one
+
+generate_compression_formats_multiple() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="gz,xz"
+
+    try test -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest generate_compression_formats_multiple
+
+generate_compression_formats_error() {
+    expect_fail sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="xz,foobar"
+}
+runtest generate_compression_formats_error
+
 echo
 echo "TOTAL SUCCESS!"
 echo

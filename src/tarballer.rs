@@ -5,7 +5,10 @@ use std::path::Path;
 use tar::{Builder, Header};
 use walkdir::WalkDir;
 
-use crate::{compression::CombinedEncoder, compression::CompressionFormat, util::*};
+use crate::{
+    compression::{CombinedEncoder, CompressionFormats},
+    util::*,
+};
 
 actor! {
     #[derive(Debug)]
@@ -18,6 +21,9 @@ actor! {
 
         /// The folder in which the input is to be found.
         work_dir: String = "./workdir",
+
+        /// The formats used to compress the tarball.
+        compression_formats: CompressionFormats = CompressionFormats::default(),
     }
 }
 
@@ -25,10 +31,12 @@ impl Tarballer {
     /// Generates the actual tarballs
     pub fn run(self) -> Result<()> {
         let tarball_name = self.output.clone() + ".tar";
-        let encoder = CombinedEncoder::new(vec![
-            CompressionFormat::Gz.encode(&tarball_name)?,
-            CompressionFormat::Xz.encode(&tarball_name)?,
-        ]);
+        let encoder = CombinedEncoder::new(
+            self.compression_formats
+                .iter()
+                .map(|f| f.encode(&tarball_name))
+                .collect::<Result<Vec<_>>>()?,
+        );
 
         // Sort files by their suffix, to group files with the same name from
         // different locations (likely identical) and files with the same
