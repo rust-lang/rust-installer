@@ -1,6 +1,9 @@
 use super::Scripter;
 use super::Tarballer;
-use crate::{compression::CompressionFormat, util::*};
+use crate::{
+    compression::{CompressionFormat, CompressionFormats},
+    util::*,
+};
 use anyhow::{bail, Context, Result};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -35,6 +38,9 @@ actor! {
 
         /// The location to put the final image and tarball.
         output_dir: String = "./dist",
+
+        /// The formats used to compress the tarball
+        compression_formats: CompressionFormats = CompressionFormats::default(),
     }
 }
 
@@ -136,7 +142,8 @@ impl Combiner {
         tarballer
             .work_dir(self.work_dir)
             .input(self.package_name)
-            .output(path_to_str(&output)?.into());
+            .output(path_to_str(&output)?.into())
+            .compression_formats(self.compression_formats.clone());
         tarballer.run()?;
 
         Ok(())

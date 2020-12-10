@@ -41,6 +41,7 @@ fn combine(matches: &ArgMatches<'_>) -> Result<()> {
         "non-installed-overlay" => non_installed_overlay,
         "work-dir" => work_dir,
         "output-dir" => output_dir,
+        "compression-formats" => compression_formats,
     });
 
     combiner.run().context("failed to combine installers")?;
