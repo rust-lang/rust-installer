@@ -88,6 +88,7 @@ fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
         "input" => input,
         "output" => output,
         "work-dir" => work_dir,
+        "compression-formats" => compression_formats,
     });
 
     tarballer.run().context("failed to generate tarballs")?;

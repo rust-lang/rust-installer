@@ -1301,6 +1301,42 @@ combine_compression_formats_error() {
 }
 runtest combine_compression_formats_error
 
+tarball_compression_formats_one() {
+    try cp -r "${TEST_DIR}/image1" "${WORK_DIR}/image"
+    try sh "$S/make-tarballs.sh" \
+        --input="${WORK_DIR}/image" \
+        --work-dir="${WORK_DIR}" \
+        --output="${OUT_DIR}/rustc" \
+        --compression-formats="xz"
+
+    try test ! -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest tarball_compression_formats_one
+
+tarball_compression_formats_multiple() {
+    try cp -r "${TEST_DIR}/image1" "${WORK_DIR}/image"
+    try sh "$S/make-tarballs.sh" \
+        --input="${WORK_DIR}/image" \
+        --work-dir="${WORK_DIR}" \
+        --output="${OUT_DIR}/rustc" \
+        --compression-formats="xz,gz"
+
+    try test -e "${OUT_DIR}/rustc.tar.gz"
+    try test -e "${OUT_DIR}/rustc.tar.xz"
+}
+runtest tarball_compression_formats_multiple
+
+tarball_compression_formats_error() {
+    try cp -r "${TEST_DIR}/image1" "${WORK_DIR}/image"
+    expect_fail sh "$S/make-tarballs.sh" \
+        --input="${WORK_DIR}/image" \
+        --work-dir="${WORK_DIR}" \
+        --output="${OUT_DIR}/rustc" \
+        --compression-formats="xz,foobar"
+}
+runtest tarball_compression_formats_error
+
 echo
 echo "TOTAL SUCCESS!"
 echo
