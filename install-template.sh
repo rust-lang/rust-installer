@@ -145,11 +145,16 @@ append_to_file() {
 
 make_dir_recursive() {
     local _dir="$1"
-    local _line="$ umask 022 && mkdir -p \"$_dir\""
-    umask 022 && mkdir -p "$_dir"
-    local _retval=$?
-    log_line "$_line"
-    return $_retval
+    # Skip if the last invocation of make_dir_recursive had the same argument
+    if ! [ "$_dir" = "${_make_dir_recursive_cached_key:-}" ]
+    then
+        _make_dir_recursive_cached_key="$_dir"
+        local _line="$ umask 022 && mkdir -p \"$_dir\""
+        umask 022 && mkdir -p "$_dir"
+        local _retval=$?
+        log_line "$_line"
+        return $_retval
+    fi
 }
 
 putvar() {
@@ -304,7 +309,8 @@ absolutify() {
     local file_path="$1"
     local file_path_dirname="${file_path%/*}"
     local file_path_basename="${file_path##*/}"
-    local file_abs_path="$(abs_path "$file_path_dirname")"
+    abs_path_cached "$file_path_dirname"
+    local file_abs_path="$abs_path_cached_retval"
     local file_path="$file_abs_path/$file_path_basename"
     # This is the return value
     RETVAL="$file_path"
@@ -312,11 +318,21 @@ absolutify() {
 
 # Prints the absolute path of a directory to stdout
 abs_path() {
+    abs_path_cached "$@"
+    printf %s "$abs_path_cached_retval"
+}
+
+abs_path_cached() {
     local path="$1"
-    # Unset CDPATH because it causes havok: it makes the destination unpredictable
-    # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
-    # for good measure.
-    (unset CDPATH && cd "$path" > /dev/null && pwd)
+    # Update return value only if the argument differs from the last invocation
+    if ! [ "$path" = "${_abs_path_cached_key:-}" ]
+    then
+        _abs_path_cached_key="$path"
+        # Unset CDPATH because it causes havok: it makes the destination unpredictable
+        # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
+        # for good measure.
+        abs_path_cached_retval="$(unset CDPATH && cd "$path" > /dev/null && pwd)"
+    fi
 }
 
 uninstall_legacy() {
