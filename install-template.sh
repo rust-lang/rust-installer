@@ -145,10 +145,8 @@ append_to_file() {
 
 make_dir_recursive() {
     local _dir="$1"
-    # Skip if the last invocation of make_dir_recursive had the same argument
-    if ! [ "$_dir" = "${_make_dir_recursive_cached_key:-}" ]
+    if [ ! -d "$_dir" ]
     then
-        _make_dir_recursive_cached_key="$_dir"
         local _line="$ umask 022 && mkdir -p \"$_dir\""
         umask 022 && mkdir -p "$_dir"
         local _retval=$?
