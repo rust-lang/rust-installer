@@ -1218,6 +1218,21 @@ generate_compression_formats_multiple() {
 }
 runtest generate_compression_formats_multiple
 
+generate_compression_formats_multiple_zst() {
+    try sh "$S/gen-installer.sh" \
+        --image-dir="$TEST_DIR/image1" \
+        --work-dir="$WORK_DIR" \
+        --output-dir="$OUT_DIR" \
+        --package-name="rustc" \
+        --component-name="rustc" \
+        --compression-formats="gz,zst"
+
+    try test -e "${OUT_DIR}/rustc.tar.gz"
+    try test ! -e "${OUT_DIR}/rustc.tar.xz"
+    try test -e "${OUT_DIR}/rustc.tar.zst"
+}
+runtest generate_compression_formats_multiple_zst
+
 generate_compression_formats_error() {
     expect_fail sh "$S/gen-installer.sh" \
         --image-dir="$TEST_DIR/image1" \
