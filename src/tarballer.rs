@@ -45,13 +45,13 @@ impl Tarballer {
             .context("failed to collect file paths")?;
         files.sort_by(|a, b| a.bytes().rev().cmp(b.bytes().rev()));
 
-        // Write the tar into both encoded files. We write all directories
+        // Write the tar into the encoded files. We write all directories
         // first, so files may be directly created. (See rust-lang/rustup.rs#1092.)
         let buf = BufWriter::with_capacity(1024 * 1024, encoder);
         let mut builder = Builder::new(buf);
 
         let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(2)
+            .num_threads(self.compression_formats.len())
             .build()
             .unwrap();
         pool.install(move || {
