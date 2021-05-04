@@ -18,6 +18,7 @@ walkdir = "2"
 xz2 = "0.1.4"
 num_cpus = "1"
 remove_dir_all = "0.5"
+zstd = { version = "0.8.0", features = ["zstdmt"] }
 
 [dependencies.clap]
 features = ["yaml"]
