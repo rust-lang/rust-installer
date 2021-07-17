@@ -25,7 +25,7 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
     // limit doesn't apply. Fallback to the original path if canonicalization fails. This can happen
     // on Windows when using a network drive.
     let from = from.as_ref().canonicalize().unwrap_or_else(|_| from.as_ref().to_owned());
-    let to = to.as_ref().canonicalize().unwrap_or_else(|_| to.as_ref().to_owned());
+    let to = to.as_ref().parent().unwrap().canonicalize().map(|path| path.join(to.as_ref().file_name().unwrap())).unwrap_or_else(|_| to.as_ref().to_owned());
 
     if fs::symlink_metadata(&from)?.file_type().is_symlink() {
         let link = fs::read_link(&from)?;
