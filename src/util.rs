@@ -28,9 +28,16 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
     } else {
         let amt = fs::copy(&from, &to).with_context(|| {
             format!(
-                "failed to copy '{}' to '{}'",
+                "failed to copy '{}' ({}) to '{}' ({}, parent {})",
                 from.as_ref().display(),
-                to.as_ref().display()
+                if from.as_ref().exists() { "exists" } else { "doesn't exist" },
+                to.as_ref().display(),
+                if to.as_ref().exists() { "exists" } else { "doesn't exist" },
+                if to.as_ref().parent().unwrap_or_else(|| Path::new("")).exists() {
+                    "exists"
+                } else {
+                    "doesn't exist"
+                },
             )
         })?;
         Ok(amt)
@@ -97,7 +104,20 @@ pub fn remove_file<P: AsRef<Path>>(path: P) -> Result<()> {
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
 /// when this function is called.
 pub fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
-    copy_with_callback(src, dst, |_, _| Ok(()))
+    copy_with_callback(src, dst, |_, _| Ok(())).with_context(|| {
+        format!(
+            "failed to recursively copy '{}' ({}) to '{}' ({}, parent {})",
+            src.display(),
+            if src.exists() { "exists" } else { "doesn't exist" },
+            dst.display(),
+            if dst.exists() { "exists" } else { "doesn't exist" },
+            if dst.parent().unwrap_or_else(|| Path::new("")).exists() {
+                "exists"
+            } else {
+                "doesn't exist"
+            },
+        )
+    })
 }
 
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
