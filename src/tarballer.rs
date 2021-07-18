@@ -63,6 +63,7 @@ impl Tarballer {
             }
             for path in files {
                 let src = Path::new(&self.work_dir).join(&path);
+                let src = src.canonicalize().unwrap_or_else(|_| src.to_owned());
                 append_path(&mut builder, &src, &path)
                     .with_context(|| format!("failed to tar file '{}'", src.display()))?;
             }
