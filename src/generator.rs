@@ -78,7 +78,8 @@ impl Generator {
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
-            copy_recursive(self.non_installed_overlay.as_ref(), &package_dir)?;
+            copy_recursive(self.non_installed_overlay.as_ref(), &package_dir)
+                .context("failed to copy overlay")?;
         }
 
         // Generate the install script
