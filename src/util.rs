@@ -1,4 +1,5 @@
 use anyhow::{format_err, Context, Result};
+use std::ffi::OsString;
 use std::fs;
 use std::ops::Deref;
 use std::path::{Component, Path, PathBuf, Prefix};
@@ -164,7 +165,8 @@ pub struct LongPath(PathBuf);
 impl LongPath {
     pub fn new(path: PathBuf) -> Self {
         let path = if cfg!(windows) {
-            match path.components().next().unwrap() {
+            // Convert paths to verbatim paths to ensure that paths longer than 255 characters work
+            match dbg!(path.components().next().unwrap()) {
                 Component::Prefix(prefix_component) => {
                     match prefix_component.kind() {
                         Prefix::Verbatim(_)
@@ -175,13 +177,21 @@ impl LongPath {
                         }
 
                         Prefix::DeviceNS(dev) => {
-                            Path::new("\\\\?\\").join(dev).join(normalize_rest(path))
+                            let mut base = OsString::from("\\\\?\\");
+                            base.push(dev);
+                            Path::new(&base).join(normalize_rest(path))
                         }
                         Prefix::UNC(host, share) => {
-                            Path::new("\\\\?\\").join(host).join(share).join(normalize_rest(path))
+                            let mut base = OsString::from("\\\\?\\UNC\\");
+                            base.push(host);
+                            base.push("\\");
+                            base.push(share);
+                            Path::new(&base).join(normalize_rest(path))
                         }
                         Prefix::Disk(_disk) => {
-                            Path::new("\\\\?\\").join(prefix_component.as_os_str()).join(normalize_rest(path))
+                            let mut base = OsString::from("\\\\?\\");
+                            base.push(prefix_component.as_os_str());
+                            Path::new(&base).join(normalize_rest(path))
                         }
                     }
                 }
@@ -190,15 +200,15 @@ impl LongPath {
                 | Component::CurDir
                 | Component::ParentDir
                 | Component::Normal(_) => {
-                    return LongPath::new(
-                        std::env::current_dir().expect("failed to get current dir").join(&path),
-                    );
+                    return LongPath::new(dbg!(
+                        std::env::current_dir().expect("failed to get current dir").join(&path)
+                    ));
                 }
             }
         } else {
             path
         };
-        LongPath(path)
+        LongPath(dbg!(path))
     }
 }
 
