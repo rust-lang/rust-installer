@@ -141,7 +141,7 @@ impl Combiner {
         let output = self.output_dir.join(&self.package_name);
         let mut tarballer = Tarballer::default();
         tarballer
-            .work_dir(self.work_dir)
+            .work_dir(LongPath::new(self.work_dir))
             .input(self.package_name)
             .output(path_to_str(&output)?.into())
             .compression_formats(self.compression_formats.clone());
