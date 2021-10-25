@@ -7,6 +7,7 @@ use crate::{
 use anyhow::{bail, Context, Result};
 use std::io::{Read, Write};
 use std::path::Path;
+use std::path::PathBuf;
 use tar::Archive;
 
 actor! {
@@ -34,10 +35,10 @@ actor! {
         non_installed_overlay: String = "",
 
         /// The directory to do temporary work.
-        work_dir: String = "./workdir",
+        work_dir: PathBuf = "./workdir",
 
         /// The location to put the final image and tarball.
-        output_dir: String = "./dist",
+        output_dir: PathBuf = "./dist",
 
         /// The formats used to compress the tarball
         compression_formats: CompressionFormats = CompressionFormats::default(),
@@ -49,7 +50,7 @@ impl Combiner {
     pub fn run(self) -> Result<()> {
         create_dir_all(&self.work_dir)?;
 
-        let package_dir = Path::new(&self.work_dir).join(&self.package_name);
+        let package_dir = self.work_dir.join(&self.package_name);
         if package_dir.exists() {
             remove_dir_all(&package_dir)?;
         }
@@ -73,14 +74,14 @@ impl Combiner {
                 .with_context(|| {
                     format!(
                         "unable to extract '{}' into '{}'",
-                        &input_tarball, self.work_dir
+                        &input_tarball, self.work_dir.display()
                     )
                 })?;
 
             let pkg_name =
                 input_tarball.trim_end_matches(&format!(".tar.{}", compression.extension()));
             let pkg_name = Path::new(pkg_name).file_name().unwrap();
-            let pkg_dir = Path::new(&self.work_dir).join(&pkg_name);
+            let pkg_dir = self.work_dir.join(&pkg_name);
 
             // Verify the version number.
             let mut version = String::new();
@@ -137,7 +138,7 @@ impl Combiner {
 
         // Make the tarballs.
         create_dir_all(&self.output_dir)?;
-        let output = Path::new(&self.output_dir).join(&self.package_name);
+        let output = self.output_dir.join(&self.package_name);
         let mut tarballer = Tarballer::default();
         tarballer
             .work_dir(self.work_dir)

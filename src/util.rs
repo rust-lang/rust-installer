@@ -21,12 +21,6 @@ pub fn path_to_str(path: &Path) -> Result<&str> {
 
 /// Wraps `fs::copy` with a nicer error message.
 pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
-    // Canonicalize the paths. On windows this results in `\\?\` paths for which the `MAX_PATH`
-    // limit doesn't apply. Fallback to the original path if canonicalization fails. This can happen
-    // on Windows when using a network drive.
-    let from = from.as_ref().canonicalize().unwrap_or_else(|_| from.as_ref().to_owned());
-    let to = to.as_ref().parent().unwrap().canonicalize().map(|path| path.join(to.as_ref().file_name().unwrap())).unwrap_or_else(|_| to.as_ref().to_owned());
-
     if fs::symlink_metadata(&from)?.file_type().is_symlink() {
         let link = fs::read_link(&from)?;
         symlink_file(link, &to)?;
@@ -35,11 +29,11 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
         let amt = fs::copy(&from, &to).with_context(|| {
             format!(
                 "failed to copy '{}' ({}) to '{}' ({}, parent {})",
-                from.display(),
-                if from.exists() { "exists" } else { "doesn't exist" },
-                to.display(),
-                if to.exists() { "exists" } else { "doesn't exist" },
-                if to.parent().unwrap_or_else(|| Path::new("")).exists() {
+                from.as_ref().display(),
+                if from.as_ref().exists() { "exists" } else { "doesn't exist" },
+                to.as_ref().display(),
+                if to.as_ref().exists() { "exists" } else { "doesn't exist" },
+                if to.as_ref().parent().unwrap_or_else(|| Path::new("")).exists() {
                     "exists"
                 } else {
                     "doesn't exist"

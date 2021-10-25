@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use std::fs::{read_link, symlink_metadata};
 use std::io::{empty, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tar::{Builder, Header};
 use walkdir::WalkDir;
 
@@ -20,7 +20,7 @@ actor! {
         output: String = "./dist",
 
         /// The folder in which the input is to be found.
-        work_dir: String = "./workdir",
+        work_dir: PathBuf = "./workdir",
 
         /// The formats used to compress the tarball.
         compression_formats: CompressionFormats = CompressionFormats::default(),
@@ -50,25 +50,16 @@ impl Tarballer {
         let buf = BufWriter::with_capacity(1024 * 1024, encoder);
         let mut builder = Builder::new(buf);
 
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(2)
-            .build()
-            .unwrap();
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         pool.install(move || {
             for path in dirs {
-                let src = Path::new(&self.work_dir).join(&path);
+                let src = self.work_dir.join(&path);
                 builder
                     .append_dir(&path, &src)
                     .with_context(|| format!("failed to tar dir '{}'", src.display()))?;
             }
             for path in files {
-                let src = Path::new(&self.work_dir).join(&path);
-                let src = src
-                    .parent()
-                    .unwrap()
-                    .canonicalize()
-                    .map(|path| path.join(src.file_name().unwrap()))
-                    .unwrap_or_else(|_| src.to_owned());
+                let src = self.work_dir.join(&path);
                 append_path(&mut builder, &src, &path)
                     .with_context(|| format!("failed to tar file '{}'", src.display()))?;
             }
@@ -112,20 +103,11 @@ fn append_path<W: Write>(builder: &mut Builder<W>, src: &Path, path: &String) ->
 }
 
 /// Returns all `(directories, files)` under the source path.
-fn get_recursive_paths<P, Q>(root: P, name: Q) -> Result<(Vec<String>, Vec<String>)>
-where
-    P: AsRef<Path>,
-    Q: AsRef<Path>,
-{
-    let root = root.as_ref();
+fn get_recursive_paths(root: &Path, name: impl AsRef<Path>) -> Result<(Vec<String>, Vec<String>)> {
     let name = name.as_ref();
 
     if !name.is_relative() && !name.starts_with(root) {
-        bail!(
-            "input '{}' is not in work dir '{}'",
-            name.display(),
-            root.display()
-        );
+        bail!("input '{}' is not in work dir '{}'", name.display(), root.display());
     }
 
     let mut dirs = vec![];

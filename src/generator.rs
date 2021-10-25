@@ -5,6 +5,7 @@ use crate::util::*;
 use anyhow::{bail, format_err, Context, Result};
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 
 actor! {
     #[derive(Debug)]
@@ -34,13 +35,13 @@ actor! {
         bulk_dirs: String = "",
 
         /// The directory containing the installation medium
-        image_dir: String = "./install_image",
+        image_dir: PathBuf = "./install_image",
 
         /// The directory to do temporary work
-        work_dir: String = "./workdir",
+        work_dir: PathBuf = "./workdir",
 
         /// The location to put the final image and tarball
-        output_dir: String = "./dist",
+        output_dir: PathBuf = "./dist",
 
         /// The formats used to compress the tarball
         compression_formats: CompressionFormats = CompressionFormats::default(),
@@ -52,7 +53,7 @@ impl Generator {
     pub fn run(self) -> Result<()> {
         create_dir_all(&self.work_dir)?;
 
-        let package_dir = Path::new(&self.work_dir).join(&self.package_name);
+        let package_dir = self.work_dir.join(&self.package_name);
         if package_dir.exists() {
             remove_dir_all(&package_dir)?;
         }
@@ -95,7 +96,7 @@ impl Generator {
 
         // Make the tarballs
         create_dir_all(&self.output_dir)?;
-        let output = Path::new(&self.output_dir).join(&self.package_name);
+        let output = self.output_dir.join(&self.package_name);
         let mut tarballer = Tarballer::default();
         tarballer
             .work_dir(self.work_dir)
