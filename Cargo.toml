@@ -6,7 +6,7 @@ edition = "2018"
 
 [[bin]]
 doc = false
-name = "fabricate"
+name = "rust-installer"
 path = "src/main.rs"
 
 [dependencies]
