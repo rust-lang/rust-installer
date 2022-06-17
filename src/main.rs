@@ -1,96 +1,28 @@
 use anyhow::{Context, Result};
-use clap::{App, ArgMatches};
+use clap::{self, Command, Parser};
 use std::convert::TryInto;
 
+#[derive(Parser)]
+struct CommandLine {
+    #[clap(subcommand)]
+    command: Subcommand,
+}
+
+#[derive(clap::Subcommand)]
+enum Subcommand {
+    Generate(installer::Generator),
+    Combine(installer::Combiner),
+    Script(installer::Scripter),
+    Tarball(installer::Tarballer),
+}
+
 fn main() -> Result<()> {
-    let yaml = clap::load_yaml!("main.yml");
-    let matches = App::from_yaml(yaml).get_matches();
-
-    match matches.subcommand() {
-        ("combine", Some(matches)) => combine(matches),
-        ("generate", Some(matches)) => generate(matches),
-        ("script", Some(matches)) => script(matches),
-        ("tarball", Some(matches)) => tarball(matches),
-        _ => unreachable!(),
+    let command_line = CommandLine::parse();
+    match command_line.command {
+        Subcommand::Combine(combiner) => combiner.run().context("failed to combine installers")?,
+        Subcommand::Generate(generator) => generator.run().context("failed to generate installer")?,
+        Subcommand::Script(scripter) => scripter.run().context("failed to generate installation script")?,
+        Subcommand::Tarball(tarballer) => tarballer.run().context("failed to generate tarballs")?,
     }
-}
-
-/// Parse clap arguements into the type constructor.
-macro_rules! parse(
-    ($matches:expr => $type:ty { $( $option:tt => $setter:ident, )* }) => {
-        {
-            let mut command: $type = Default::default();
-            $(
-                if let Some(val) = $matches.value_of($option) {
-                    command.$setter(val.try_into()?);
-                }
-            )*
-            command
-        }
-    }
-);
-
-fn combine(matches: &ArgMatches<'_>) -> Result<()> {
-    let combiner = parse!(matches => installer::Combiner {
-        "product-name" => product_name,
-        "package-name" => package_name,
-        "rel-manifest-dir" => rel_manifest_dir,
-        "success-message" => success_message,
-        "legacy-manifest-dirs" => legacy_manifest_dirs,
-        "input-tarballs" => input_tarballs,
-        "non-installed-overlay" => non_installed_overlay,
-        "work-dir" => work_dir,
-        "output-dir" => output_dir,
-        "compression-formats" => compression_formats,
-    });
-
-    combiner.run().context("failed to combine installers")?;
-    Ok(())
-}
-
-fn generate(matches: &ArgMatches<'_>) -> Result<()> {
-    let generator = parse!(matches => installer::Generator {
-        "product-name" => product_name,
-        "component-name" => component_name,
-        "package-name" => package_name,
-        "rel-manifest-dir" => rel_manifest_dir,
-        "success-message" => success_message,
-        "legacy-manifest-dirs" => legacy_manifest_dirs,
-        "non-installed-overlay" => non_installed_overlay,
-        "bulk-dirs" => bulk_dirs,
-        "image-dir" => image_dir,
-        "work-dir" => work_dir,
-        "output-dir" => output_dir,
-        "compression-formats" => compression_formats,
-    });
-
-    generator.run().context("failed to generate installer")?;
-    Ok(())
-}
-
-fn script(matches: &ArgMatches<'_>) -> Result<()> {
-    let scripter = parse!(matches => installer::Scripter {
-        "product-name" => product_name,
-        "rel-manifest-dir" => rel_manifest_dir,
-        "success-message" => success_message,
-        "legacy-manifest-dirs" => legacy_manifest_dirs,
-        "output-script" => output_script,
-    });
-
-    scripter
-        .run()
-        .context("failed to generate installation script")?;
-    Ok(())
-}
-
-fn tarball(matches: &ArgMatches<'_>) -> Result<()> {
-    let tarballer = parse!(matches => installer::Tarballer {
-        "input" => input,
-        "output" => output,
-        "work-dir" => work_dir,
-        "compression-formats" => compression_formats,
-    });
-
-    tarballer.run().context("failed to generate tarballs")?;
     Ok(())
 }

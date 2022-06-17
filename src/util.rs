@@ -122,30 +122,35 @@ where
     Ok(())
 }
 
-/// Creates an "actor" with default values and setters for all fields.
+macro_rules! actor_field_default {
+    () => { Default::default() };
+    (= $expr:expr) => { $expr.into() }
+}
+
+/// Creates an "actor" with default values, setters for all fields, and Clap parser support.
 macro_rules! actor {
     ($( #[ $attr:meta ] )+ pub struct $name:ident {
-        $( $( #[ $field_attr:meta ] )+ $field:ident : $type:ty = $default:expr, )*
+        $( $( #[ $field_attr:meta ] )+ $field:ident : $type:ty $(= $default:tt)*, )*
     }) => {
         $( #[ $attr ] )+
+        #[derive(clap::Args)]
         pub struct $name {
-            $( $( #[ $field_attr ] )+ $field : $type, )*
+            $( $( #[ $field_attr ] )+ #[clap(long, $(default_value = $default)*)] $field : $type, )*
         }
 
         impl Default for $name {
-            fn default() -> Self {
+            fn default() -> $name {
                 $name {
-                    $( $field : $default.into(), )*
+                    $($field : actor_field_default!($(= $default)*), )*
                 }
             }
         }
 
         impl $name {
-            $( $( #[ $field_attr ] )+
-            pub fn $field(&mut self, value: $type) -> &mut Self {
+            $(pub fn $field(&mut self, value: $type) -> &mut Self {
                 self.$field = value;
                 self
-            })+
+            })*
         }
     }
 }
