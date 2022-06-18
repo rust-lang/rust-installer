@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{self, Command, Parser};
-use std::convert::TryInto;
+use clap::{self, Parser};
 
 #[derive(Parser)]
 struct CommandLine {
