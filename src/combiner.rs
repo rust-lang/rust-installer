@@ -13,34 +13,44 @@ actor! {
     #[derive(Debug)]
     pub struct Combiner {
         /// The name of the product, for display.
+        #[clap(value_name = "NAME")]
         product_name: String = "Product",
 
         /// The name of the package  tarball.
+        #[clap(value_name = "NAME")]
         package_name: String = "package",
 
         /// The directory under lib/ where the manifest lives.
+        #[clap(value_name = "DIR")]
         rel_manifest_dir: String = "packagelib",
 
         /// The string to print after successful installation.
+        #[clap(value_name = "MESSAGE")]
         success_message: String = "Installed.",
 
         /// Places to look for legacy manifests to uninstall.
+        #[clap(value_name = "DIRS")]
         legacy_manifest_dirs: String = "",
 
         /// Installers to combine.
+        #[clap(value_name = "FILE,FILE")]
         input_tarballs: String = "",
 
         /// Directory containing files that should not be installed.
+        #[clap(value_name = "DIR")]
         non_installed_overlay: String = "",
 
         /// The directory to do temporary work.
+        #[clap(value_name = "DIR")]
         work_dir: String = "./workdir",
 
         /// The location to put the final image and tarball.
+        #[clap(value_name = "DIR")]
         output_dir: String = "./dist",
 
         /// The formats used to compress the tarball
-        compression_formats: CompressionFormats = CompressionFormats::default(),
+        #[clap(value_name = "FORMAT", default_value_t)]
+        compression_formats: CompressionFormats,
     }
 }
 

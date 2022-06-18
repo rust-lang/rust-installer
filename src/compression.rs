@@ -1,7 +1,7 @@
 use anyhow::{Context, Error};
 use flate2::{read::GzDecoder, write::GzEncoder};
 use rayon::prelude::*;
-use std::{convert::TryFrom, io::Read, io::Write, path::Path};
+use std::{convert::TryFrom, fmt, io::Read, io::Write, path::Path, str::FromStr};
 use xz2::{read::XzDecoder, write::XzEncoder};
 
 #[derive(Debug, Copy, Clone)]
@@ -77,6 +77,29 @@ impl TryFrom<&'_ str> for CompressionFormats {
             }
         }
         Ok(CompressionFormats(parsed))
+    }
+}
+
+impl FromStr for CompressionFormats {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::try_from(value)
+    }
+}
+
+impl fmt::Display for CompressionFormats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, format) in self.iter().enumerate() {
+            if i != 0 {
+                write!(f, ",")?;
+            }
+            fmt::Display::fmt(match format {
+                CompressionFormat::Xz => "xz",
+                CompressionFormat::Gz => "gz",
+            }, f)?;
+        }
+        Ok(())
     }
 }
 

@@ -14,16 +14,20 @@ actor! {
     #[derive(Debug)]
     pub struct Tarballer {
         /// The input folder to be compressed.
+        #[clap(value_name = "NAME")]
         input: String = "package",
 
         /// The prefix of the tarballs.
+        #[clap(value_name = "PATH")]
         output: String = "./dist",
 
         /// The folder in which the input is to be found.
+        #[clap(value_name = "DIR")]
         work_dir: String = "./workdir",
 
         /// The formats used to compress the tarball.
-        compression_formats: CompressionFormats = CompressionFormats::default(),
+        #[clap(value_name = "FORMAT", default_value_t)]
+        compression_formats: CompressionFormats,
     }
 }
 
