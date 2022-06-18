@@ -34,13 +34,13 @@ actor! {
         bulk_dirs: String = "",
 
         /// The directory containing the installation medium
-        image_dir: String = "./install_image",
+        image_dir: LongPath = "./install_image",
 
         /// The directory to do temporary work
-        work_dir: String = "./workdir",
+        work_dir: LongPath = "./workdir",
 
         /// The location to put the final image and tarball
-        output_dir: String = "./dist",
+        output_dir: LongPath = "./dist",
 
         /// The formats used to compress the tarball
         compression_formats: CompressionFormats = CompressionFormats::default(),
@@ -50,9 +50,9 @@ actor! {
 impl Generator {
     /// Generates the actual installer tarball
     pub fn run(self) -> Result<()> {
-        create_dir_all(&self.work_dir)?;
+        create_dir_all(&*self.work_dir)?;
 
-        let package_dir = Path::new(&self.work_dir).join(&self.package_name);
+        let package_dir = self.work_dir.join(&self.package_name);
         if package_dir.exists() {
             remove_dir_all(&package_dir)?;
         }
@@ -78,7 +78,8 @@ impl Generator {
 
         // Copy the overlay
         if !self.non_installed_overlay.is_empty() {
-            copy_recursive(self.non_installed_overlay.as_ref(), &package_dir)?;
+            copy_recursive(self.non_installed_overlay.as_ref(), &package_dir)
+                .context("failed to copy overlay")?;
         }
 
         // Generate the install script
@@ -93,8 +94,8 @@ impl Generator {
         scripter.run()?;
 
         // Make the tarballs
-        create_dir_all(&self.output_dir)?;
-        let output = Path::new(&self.output_dir).join(&self.package_name);
+        create_dir_all(&*self.output_dir)?;
+        let output = self.output_dir.join(&self.package_name);
         let mut tarballer = Tarballer::default();
         tarballer
             .work_dir(self.work_dir)

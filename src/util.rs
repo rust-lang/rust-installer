@@ -1,6 +1,8 @@
 use anyhow::{format_err, Context, Result};
+use std::ffi::OsString;
 use std::fs;
-use std::path::Path;
+use std::ops::Deref;
+use std::path::{Component, Path, PathBuf, Prefix};
 use walkdir::WalkDir;
 
 // Needed to set the script mode to executable.
@@ -15,8 +17,7 @@ use std::os::windows::fs::symlink_file;
 
 /// Converts a `&Path` to a UTF-8 `&str`.
 pub fn path_to_str(path: &Path) -> Result<&str> {
-    path.to_str()
-        .ok_or_else(|| format_err!("path is not valid UTF-8 '{}'", path.display()))
+    path.to_str().ok_or_else(|| format_err!("path is not valid UTF-8 '{}'", path.display()))
 }
 
 /// Wraps `fs::copy` with a nicer error message.
@@ -28,9 +29,16 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<u64> {
     } else {
         let amt = fs::copy(&from, &to).with_context(|| {
             format!(
-                "failed to copy '{}' to '{}'",
+                "failed to copy '{}' ({}) to '{}' ({}, parent {})",
                 from.as_ref().display(),
-                to.as_ref().display()
+                if from.as_ref().exists() { "exists" } else { "doesn't exist" },
+                to.as_ref().display(),
+                if to.as_ref().exists() { "exists" } else { "doesn't exist" },
+                if to.as_ref().parent().unwrap_or_else(|| Path::new("")).exists() {
+                    "exists"
+                } else {
+                    "doesn't exist"
+                },
             )
         })?;
         Ok(amt)
@@ -97,7 +105,20 @@ pub fn remove_file<P: AsRef<Path>>(path: P) -> Result<()> {
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
 /// when this function is called.
 pub fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
-    copy_with_callback(src, dst, |_, _| Ok(()))
+    copy_with_callback(src, dst, |_, _| Ok(())).with_context(|| {
+        format!(
+            "failed to recursively copy '{}' ({}) to '{}' ({}, parent {})",
+            src.display(),
+            if src.exists() { "exists" } else { "doesn't exist" },
+            dst.display(),
+            if dst.exists() { "exists" } else { "doesn't exist" },
+            if dst.parent().unwrap_or_else(|| Path::new("")).exists() {
+                "exists"
+            } else {
+                "doesn't exist"
+            },
+        )
+    })
 }
 
 /// Copies the `src` directory recursively to `dst`. Both are assumed to exist
@@ -120,6 +141,89 @@ where
         callback(&path, file_type)?;
     }
     Ok(())
+}
+
+fn normalize_rest(path: PathBuf) -> PathBuf {
+    let mut new_components = vec![];
+    for component in path.components().skip(1) {
+        match component {
+            Component::Prefix(_) => unreachable!(),
+            Component::RootDir => new_components.clear(),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                new_components.pop();
+            }
+            Component::Normal(component) => new_components.push(component),
+        }
+    }
+    new_components.into_iter().collect()
+}
+
+#[derive(Debug)]
+pub struct LongPath(PathBuf);
+
+impl LongPath {
+    pub fn new(path: PathBuf) -> Self {
+        let path = if cfg!(windows) {
+            // Convert paths to verbatim paths to ensure that paths longer than 255 characters work
+            match dbg!(path.components().next().unwrap()) {
+                Component::Prefix(prefix_component) => {
+                    match prefix_component.kind() {
+                        Prefix::Verbatim(_)
+                        | Prefix::VerbatimUNC(_, _)
+                        | Prefix::VerbatimDisk(_) => {
+                            // Already a verbatim path.
+                            path
+                        }
+
+                        Prefix::DeviceNS(dev) => {
+                            let mut base = OsString::from("\\\\?\\");
+                            base.push(dev);
+                            Path::new(&base).join(normalize_rest(path))
+                        }
+                        Prefix::UNC(host, share) => {
+                            let mut base = OsString::from("\\\\?\\UNC\\");
+                            base.push(host);
+                            base.push("\\");
+                            base.push(share);
+                            Path::new(&base).join(normalize_rest(path))
+                        }
+                        Prefix::Disk(_disk) => {
+                            let mut base = OsString::from("\\\\?\\");
+                            base.push(prefix_component.as_os_str());
+                            Path::new(&base).join(normalize_rest(path))
+                        }
+                    }
+                }
+
+                Component::RootDir
+                | Component::CurDir
+                | Component::ParentDir
+                | Component::Normal(_) => {
+                    return LongPath::new(dbg!(
+                        std::env::current_dir().expect("failed to get current dir").join(&path)
+                    ));
+                }
+            }
+        } else {
+            path
+        };
+        LongPath(dbg!(path))
+    }
+}
+
+impl Into<LongPath> for &str {
+    fn into(self) -> LongPath {
+        LongPath::new(self.into())
+    }
+}
+
+impl Deref for LongPath {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.0
+    }
 }
 
 /// Creates an "actor" with default values and setters for all fields.
