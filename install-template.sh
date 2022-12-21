@@ -921,9 +921,27 @@ fi
 
 if [ -n "$CFG_WITHOUT" ]; then
     without_components="$(echo "$CFG_WITHOUT" | sed "s/,/ /g")"
-    for without_component in $without_components; do
-	components="$(echo "$components" | sed "s/$without_component//" | sed "s/$without_component//")"
+
+    # This does **not** check that all components in without_components are
+    # actually present in the list of available components.
+    #
+    # Currently that's considered good as it makes it easier to be compatible
+    # with multiple Rust versions (which may change the exact list of
+    # components) when writing install scripts.
+    new_comp=""
+    for component in $components; do
+        found=false
+        for my_component in $without_components; do
+            if [ "$component" = "$my_component" ]; then
+                found=true
+            fi
+        done
+        if [ "$found" = false ]; then
+            # If we didn't find the component in without, then add it to new list.
+            new_comp="$new_comp $component"
+        fi
     done
+    components="$new_comp"
 fi
 
 if [ -z "$components" ]; then
