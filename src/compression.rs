@@ -39,14 +39,37 @@ impl CompressionFormat {
         Ok(match self {
             CompressionFormat::Gz => Box::new(GzEncoder::new(file, flate2::Compression::best())),
             CompressionFormat::Xz => {
-                // Note that preset 6 takes about 173MB of memory per thread, so we limit the number of
-                // threads to not blow out 32-bit hosts.  (We could be more precise with
-                // `MtStreamBuilder::memusage()` if desired.)
-                let stream = xz2::stream::MtStreamBuilder::new()
-                    .threads(Ord::min(num_cpus::get(), 8) as u32)
-                    .preset(6)
-                    .encoder()?;
-                Box::new(XzEncoder::new_stream(file, stream))
+                let mut filters = xz2::stream::Filters::new();
+                // the preset is overridden by the other options so it doesn't matter
+                let mut lzma_ops = xz2::stream::LzmaOptions::new_preset(9).unwrap();
+                // This sets the overall dictionary size, which is also how much memory (baseline)
+                // is needed for decompression.
+                lzma_ops.dict_size(64 * 1024 * 1024);
+                // Use the best match finder for compression ratio.
+                lzma_ops.match_finder(xz2::stream::MatchFinder::BinaryTree4);
+                lzma_ops.mode(xz2::stream::Mode::Normal);
+                // Set nice len to the maximum for best compression ratio
+                lzma_ops.nice_len(273);
+                // Set depth to a reasonable value, 0 means auto, 1000 is somwhat high but gives
+                // good results.
+                lzma_ops.depth(1000);
+                // 2 is the default and does well for most files
+                lzma_ops.position_bits(2);
+                // 0 is the default and does well for most files
+                lzma_ops.literal_position_bits(0);
+                // 3 is the default and does well for most files
+                lzma_ops.literal_context_bits(3);
+
+                filters.lzma2(&lzma_ops);
+                let compressor = XzEncoder::new_stream(
+                    std::io::BufWriter::new(file),
+                    xz2::stream::MtStreamBuilder::new()
+                        .threads(1)
+                        .filters(filters)
+                        .encoder()
+                        .unwrap(),
+                );
+                Box::new(compressor)
             }
         })
     }
@@ -94,10 +117,13 @@ impl fmt::Display for CompressionFormats {
             if i != 0 {
                 write!(f, ",")?;
             }
-            fmt::Display::fmt(match format {
-                CompressionFormat::Xz => "xz",
-                CompressionFormat::Gz => "gz",
-            }, f)?;
+            fmt::Display::fmt(
+                match format {
+                    CompressionFormat::Xz => "xz",
+                    CompressionFormat::Gz => "gz",
+                },
+                f,
+            )?;
         }
         Ok(())
     }
