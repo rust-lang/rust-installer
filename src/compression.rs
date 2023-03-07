@@ -8,6 +8,7 @@ use xz2::{read::XzDecoder, write::XzEncoder};
 pub enum CompressionFormat {
     Gz,
     Xz,
+    Zstd,
 }
 
 impl CompressionFormat {
@@ -15,6 +16,7 @@ impl CompressionFormat {
         match path.as_ref().extension().and_then(|e| e.to_str()) {
             Some("gz") => Some(CompressionFormat::Gz),
             Some("xz") => Some(CompressionFormat::Xz),
+            Some("zst") => Some(CompressionFormat::Zstd),
             _ => None,
         }
     }
@@ -23,6 +25,7 @@ impl CompressionFormat {
         match self {
             CompressionFormat::Gz => "gz",
             CompressionFormat::Xz => "xz",
+            CompressionFormat::Zstd => "zst",
         }
     }
 
@@ -71,6 +74,18 @@ impl CompressionFormat {
                 );
                 Box::new(compressor)
             }
+            CompressionFormat::Zstd => {
+                // Level 19 provides a good balance between compression time and file size.
+                let mut encoder = zstd::Encoder::new(file, 19)?;
+                // Long-distance matching provides a substantial benefit for our tarballs, and
+                // actually makes compression *faster*.
+                encoder.long_distance_matching(true).context("zst long_distance_matching")?;
+                // Long-distance matching uses a 128MB window, and currently needs about that much
+                // memory per thread, so limit the number of threads to be friendlier to 32-bit
+                // systems.
+                encoder.multithread(Ord::min(num_cpus::get(), 12) as u32).context("zst multithread")?;
+                Box::new(encoder)
+            }
         })
     }
 
@@ -79,6 +94,7 @@ impl CompressionFormat {
         Ok(match self {
             CompressionFormat::Gz => Box::new(GzDecoder::new(file)),
             CompressionFormat::Xz => Box::new(XzDecoder::new(file)),
+            CompressionFormat::Zstd => Box::new(zstd::Decoder::new(file)?),
         })
     }
 }
@@ -96,6 +112,7 @@ impl TryFrom<&'_ str> for CompressionFormats {
             match format.trim() {
                 "gz" => parsed.push(CompressionFormat::Gz),
                 "xz" => parsed.push(CompressionFormat::Xz),
+                "zst" => parsed.push(CompressionFormat::Zstd),
                 other => anyhow::bail!("unknown compression format: {}", other),
             }
         }
@@ -139,6 +156,10 @@ impl CompressionFormats {
     pub(crate) fn iter(&self) -> impl Iterator<Item = CompressionFormat> + '_ {
         self.0.iter().map(|i| *i)
     }
+
+    pub(crate) fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 pub(crate) trait Encoder: Send + Write {
@@ -155,6 +176,13 @@ impl<W: Send + Write> Encoder for GzEncoder<W> {
 impl<W: Send + Write> Encoder for XzEncoder<W> {
     fn finish(self: Box<Self>) -> Result<(), Error> {
         XzEncoder::finish(*self).context("failed to finish .xz file")?;
+        Ok(())
+    }
+}
+
+impl<W: Send + Write> Encoder for zstd::Encoder<'_, W> {
+    fn finish(mut self: Box<Self>) -> Result<(), Error> {
+        zstd::Encoder::do_finish(self.as_mut()).context("failed to finish .zst file")?;
         Ok(())
     }
 }
