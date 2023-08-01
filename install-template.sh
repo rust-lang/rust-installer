@@ -169,7 +169,7 @@ valopt() {
     local doc="$*"
     if [ $HELP -eq 0 ]
     then
-        local uop=$(echo $op | tr 'a-z-' 'A-Z_')
+        local uop=$(echo $op | tr '[a-z]-' '[A-Z]_')
         local v="CFG_${uop}"
         eval $v="$default"
         for arg in $CFG_ARGS
@@ -215,8 +215,8 @@ opt() {
         do
             if [ "$arg" = "--${flag}-${op}" ]
             then
-                op=$(echo $op | tr 'a-z-' 'A-Z_')
-                flag=$(echo $flag | tr 'a-z' 'A-Z')
+                op=$(echo $op | tr '[a-z]-' '[A-Z]_')
+                flag=$(echo $flag | tr '[a-z]' '[A-Z]')
                 local v="CFG_${flag}_${op}"
                 eval $v=1
                 putvar $v
@@ -244,7 +244,7 @@ flag() {
         do
             if [ "$arg" = "--${op}" ]
             then
-                op=$(echo $op | tr 'a-z-' 'A-Z_')
+                op=$(echo $op | tr '[a-z]-' '[A-Z]_')
                 local v="CFG_${op}"
                 eval $v=1
                 putvar $v
