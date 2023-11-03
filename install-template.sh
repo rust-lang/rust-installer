@@ -744,7 +744,7 @@ do_preflight_sanity_checks() {
     local _src_dir="$1"
     local _dest_prefix="$2"
 
-    # Sanity check: can we can write to the destination?
+    # Sanity check: can we write to the destination?
     verbose_msg "verifying destination is writable"
     make_dir_recursive "$CFG_LIBDIR"
     need_ok "can't write to destination. consider \`sudo\`."
