@@ -145,11 +145,14 @@ append_to_file() {
 
 make_dir_recursive() {
     local _dir="$1"
-    local _line="$ umask 022 && mkdir -p \"$_dir\""
-    umask 022 && mkdir -p "$_dir"
-    local _retval=$?
-    log_line "$_line"
-    return $_retval
+    if [ ! -d "$_dir" ]
+    then
+        local _line="$ umask 022 && mkdir -p \"$_dir\""
+        umask 022 && mkdir -p "$_dir"
+        local _retval=$?
+        log_line "$_line"
+        return $_retval
+    fi
 }
 
 putvar() {
@@ -174,11 +177,11 @@ valopt() {
         eval $v="$default"
         for arg in $CFG_ARGS
         do
-            if echo "$arg" | grep -q -- "--$op="
-            then
-                local val=$(echo "$arg" | cut -f2 -d=)
-                eval $v=$val
-            fi
+            case "${arg}" in
+                "--${op}="* )
+                    local val="${arg#--${op}=}"
+                    eval $v=$val
+            esac
         done
         putvar $v
     else
@@ -280,10 +283,10 @@ validate_opt () {
         done
         for option in $VAL_OPTIONS
         do
-            if echo "$arg" | grep -q -- "--$option="
-            then
-                is_arg_valid=1
-            fi
+            case "${arg}" in
+                "--${option}="* )
+                    is_arg_valid=1
+            esac
         done
         if [ "$arg" = "--help" ]
         then
@@ -302,9 +305,10 @@ validate_opt () {
 
 absolutify() {
     local file_path="$1"
-    local file_path_dirname="$(dirname "$file_path")"
-    local file_path_basename="$(basename "$file_path")"
-    local file_abs_path="$(abs_path "$file_path_dirname")"
+    local file_path_dirname="${file_path%/*}"
+    local file_path_basename="${file_path##*/}"
+    abs_path_cached "$file_path_dirname"
+    local file_abs_path="$abs_path_cached_retval"
     local file_path="$file_abs_path/$file_path_basename"
     # This is the return value
     RETVAL="$file_path"
@@ -312,11 +316,21 @@ absolutify() {
 
 # Prints the absolute path of a directory to stdout
 abs_path() {
+    abs_path_cached "$@"
+    printf %s "$abs_path_cached_retval"
+}
+
+abs_path_cached() {
     local path="$1"
-    # Unset CDPATH because it causes havok: it makes the destination unpredictable
-    # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
-    # for good measure.
-    (unset CDPATH && cd "$path" > /dev/null && pwd)
+    # Update return value only if the argument differs from the last invocation
+    if ! [ "$path" = "${_abs_path_cached_key:-}" ]
+    then
+        _abs_path_cached_key="$path"
+        # Unset CDPATH because it causes havok: it makes the destination unpredictable
+        # and triggers 'cd' to print the path to stdout. Route `cd`'s output to /dev/null
+        # for good measure.
+        abs_path_cached_retval="$(unset CDPATH && cd "$path" > /dev/null && pwd)"
+    fi
 }
 
 uninstall_legacy() {
@@ -442,8 +456,8 @@ uninstall_components() {
 		    local _directive
 		    while read _directive; do
 
-			local _command=`echo $_directive | cut -f1 -d:`
-			local _file=`echo $_directive | cut -f2 -d:`
+			local _command="${_directive%%:*}"
+			local _file="${_directive#*:}"
 
 			# Sanity checks
 			if [ ! -n "$_command" ]; then critical_err "malformed installation directive"; fi
@@ -549,8 +563,8 @@ install_components() {
 	local _directive
 	while read _directive; do
 
-	    local _command=`echo $_directive | cut -f1 -d:`
-	    local _file=`echo $_directive | cut -f2 -d:`
+	    local _command="${_directive%%:*}"
+	    local _file="${_directive#*:}"
 
 	    # Sanity checks
 	    if [ ! -n "$_command" ]; then critical_err "malformed installation directive"; fi
@@ -559,35 +573,23 @@ install_components() {
 	    # Decide the destination of the file
 	    local _file_install_path="$_dest_prefix/$_file"
 
-	    if echo "$_file" | grep "^etc/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^etc\///')"
-		_file_install_path="$CFG_SYSCONFDIR/$_f"
-	    fi
-
-	    if echo "$_file" | grep "^bin/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^bin\///')"
-		_file_install_path="$CFG_BINDIR/$_f"
-	    fi
-
-	    if echo "$_file" | grep "^lib/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^lib\///')"
-		_file_install_path="$CFG_LIBDIR/$_f"
-	    fi
-
-	    if echo "$_file" | grep "^share" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^share\///')"
-		_file_install_path="$CFG_DATADIR/$_f"
-	    fi
-
-	    if echo "$_file" | grep "^share/man/" > /dev/null
-	    then
-		local _f="$(echo "$_file" | sed 's/^share\/man\///')"
-		_file_install_path="$CFG_MANDIR/$_f"
-	    fi
+        case "${_file}" in
+            etc/* )
+                _file_install_path="$CFG_SYSCONFDIR/${_file#etc/}"
+            ;;
+            bin/* )
+                _file_install_path="$CFG_BINDIR/${_file#bin/}"
+            ;;
+            lib/* )
+                _file_install_path="$CFG_LIBDIR/${_file#lib/}"
+            ;;
+            share/man/* )
+                _file_install_path="$CFG_MANDIR/${_file#share/man/}"
+            ;;
+            share/* )
+                _file_install_path="$CFG_DATADIR/${_file#share/}"
+            ;;
+        esac
 
             # HACK: Try to support overriding --docdir.  Paths with the form
             # "share/doc/$product/" can be redirected to a single --docdir
@@ -601,15 +603,14 @@ install_components() {
             # this problem to be a big deal in practice.
             if [ "$CFG_DOCDIR" != "<default>" ]
             then
-	        if echo "$_file" | grep "^share/doc/" > /dev/null
-	        then
-		    local _f="$(echo "$_file" | sed 's/^share\/doc\/[^/]*\///')"
-		    _file_install_path="$CFG_DOCDIR/$_f"
-	        fi
+                case "${_file}" in
+                    share/doc/* )
+                    _file_install_path="$CFG_DOCDIR/${_file#share/doc/*/}"
+                esac
             fi
 
 	    # Make sure there's a directory for it
-	    make_dir_recursive "$(dirname "$_file_install_path")"
+	    make_dir_recursive "${_file_install_path%/*}"
 	    critical_need_ok "directory creation failed"
 
 	    # Make the path absolute so we can uninstall it later without
@@ -625,7 +626,7 @@ install_components() {
 
 		    maybe_backup_path "$_file_install_path"
 
-		    if echo "$_file" | grep "^bin/" > /dev/null || test -x "$_src_dir/$_component/$_file"
+		    if test -z "${_file##bin/*}" || test -x "$_src_dir/$_component/$_file"
 		    then
 			run cp "$_src_dir/$_component/$_file" "$_file_install_path"
 			run chmod 755 "$_file_install_path"
@@ -770,8 +771,6 @@ verbose_msg
 
 need_cmd mkdir
 need_cmd printf
-need_cmd cut
-need_cmd grep
 need_cmd uname
 need_cmd tr
 need_cmd sed
